@@ -1,0 +1,129 @@
+\chapterHeading{Geometry}
+
+\sectionHeading{Point}
+\begin{lstlisting}[language=C++]
+using ld = long double;
+const ld EPS = 1e-9, PI = acosl(-1.0L);
+
+int sgn(ld x) { return (x > EPS) - (x < -EPS); }
+
+struct Point {
+    ld x = 0, y = 0;
+    Point() {}
+    Point(ld x, ld y) : x(x), y(y) {}
+
+    Point operator+(const Point& p) const { return {x + p.x, y + p.y}; }
+    Point operator-(const Point& p) const { return {x - p.x, y - p.y}; }
+    Point operator*(ld k) const { return {x * k, y * k}; }
+    Point operator/(ld k) const { return {x / k, y / k}; }
+    bool operator==(const Point& p) const { return fabsl(x - p.x) < EPS && fabsl(y - p.y) < EPS; }
+    bool operator<(const Point& p) const { return x != p.x ? x < p.x : y < p.y; }
+
+    ld dot(const Point& p) const { return x * p.x + y * p.y; }
+    ld cross(const Point& p) const { return x * p.y - y * p.x; }
+    ld cross(const Point& a, const Point& b) const { return (a - *this).cross(b - *this); }
+    ld dist2() const { return x * x + y * y; }
+    ld dist() const { return sqrtl(dist2()); }
+    ld angle() const { return atan2l(y, x); }
+    Point unit() const { return *this / dist(); }
+    Point perp() const { return {-y, x}; }
+    Point rotate(ld a) const { return {x * cosl(a) - y * sinl(a), x * sinl(a) + y * cosl(a)}; }
+};
+\end{lstlisting}
+
+\sectionHeading{Segments}
+\begin{lstlisting}[language=C++]
+bool onSegment(const Point& p, const Point& a, const Point& b) {
+    return fabsl((a - p).cross(b - p)) < EPS && (a - p).dot(b - p) <= EPS;
+}
+
+bool segmentsIntersect(const Point& a, const Point& b,
+                       const Point& c, const Point& d) {
+    int o1 = sgn(a.cross(b, c)), o2 = sgn(a.cross(b, d));
+    int o3 = sgn(c.cross(d, a)), o4 = sgn(c.cross(d, b));
+    if (o1 * o2 < 0 && o3 * o4 < 0) return true;
+    return (o1 == 0 && onSegment(c, a, b)) || (o2 == 0 && onSegment(d, a, b)) ||
+           (o3 == 0 && onSegment(a, c, d)) || (o4 == 0 && onSegment(b, c, d));
+}
+\end{lstlisting}
+
+\sectionHeading{Convex hull}
+\begin{lstlisting}[language=C++]
+vector<Point> convexHull(vector<Point> p) {    // counter-clockwise
+    sort(p.begin(), p.end());
+    p.erase(unique(p.begin(), p.end()), p.end());
+    int n = p.size();
+    if (n < 3) return p;
+    vector<Point> h(2 * n);
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+        while (k >= 2 && sgn(h[k - 1].cross(h[k - 2], p[i])) <= 0) k--;
+        h[k++] = p[i];
+    }
+    for (int i = n - 2, t = k + 1; i >= 0; i--) {
+        while (k >= t && sgn(h[k - 1].cross(h[k - 2], p[i])) <= 0) k--;
+        h[k++] = p[i];
+    }
+    h.resize(k - 1);
+    return h;
+}
+\end{lstlisting}
+
+\sectionHeading{Polygon area and Pick's theorem}
+\begin{lstlisting}[language=C++]
+ld polygonArea(const vector<Point>& p) {       // signed shoelace
+    ld a = 0;
+    for (int i = 0, n = p.size(); i < n; i++) a += p[i].cross(p[(i + 1) % n]);
+    return a / 2;
+}
+
+// Pick: A = I + B/2 - 1  =>  I = A - B/2 + 1   (integer coordinates)
+long long boundaryPoints(const vector<Point>& p) {
+    long long b = 0;
+    for (int i = 0, n = p.size(); i < n; i++) {
+        long long dx = llabs(llroundl(p[(i + 1) % n].x - p[i].x));
+        long long dy = llabs(llroundl(p[(i + 1) % n].y - p[i].y));
+        b += __gcd(dx, dy);
+    }
+    return b;
+}
+\end{lstlisting}
+
+\sectionHeading{Two circles: common area}
+\begin{lstlisting}[language=C++]
+ld circleIntersectionArea(const Point& a, ld r1, const Point& b, ld r2) {
+    ld d = (a - b).dist();
+    if (d >= r1 + r2) return 0;
+    if (d <= fabsl(r1 - r2)) return PI * min(r1, r2) * min(r1, r2);
+    ld a1 = acosl((d * d + r1 * r1 - r2 * r2) / (2 * d * r1));
+    ld a2 = acosl((d * d + r2 * r2 - r1 * r1) / (2 * d * r2));
+    ld tri = 0.5L * sqrtl(max((ld)0, (-d + r1 + r2) * (d + r1 - r2) *
+                                         (d - r1 + r2) * (d + r1 + r2)));
+    return r1 * r1 * a1 + r2 * r2 * a2 - tri;
+}
+\end{lstlisting}
+
+\sectionHeading{Polar sort}
+\begin{lstlisting}[language=C++]
+void polarSort(vector<Point>& v) {             // counter-clockwise
+    sort(v.begin(), v.end(), [](const Point& a, const Point& b) {
+        auto half = [](const Point& p) { return p.y > 0 || (p.y == 0 && p.x >= 0); };
+        bool ha = half(a), hb = half(b);
+        if (ha != hb) return ha > hb;
+        return a.cross(b) > 0;
+    });
+}
+\end{lstlisting}
+
+\sectionHeading{Maximum Manhattan distance}
+\begin{lstlisting}[language=C++]
+ld maxManhattanDistance(const vector<Point>& p) {
+    ld mx1 = -1e18L, mn1 = 1e18L, mx2 = -1e18L, mn2 = 1e18L;
+    for (const auto& q : p) {
+        ld v1 = q.x + q.y, v2 = q.x - q.y;
+        mx1 = max(mx1, v1); mn1 = min(mn1, v1);
+        mx2 = max(mx2, v2); mn2 = min(mn2, v2);
+    }
+    return max(mx1 - mn1, mx2 - mn2);
+}
+\end{lstlisting}

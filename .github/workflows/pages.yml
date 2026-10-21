@@ -1,0 +1,66 @@
+name: Build PDF and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]      # rebuild whenever main changes
+  workflow_dispatch:      # allow running it by hand from the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install TeX Live and make
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-luatex make
+
+      - name: Build the PDF
+        run: make            # -> build/endofcp.pdf (three lualatex passes)
+
+      - name: Assemble the Pages site
+        run: |
+          mkdir -p public
+          cp build/endofcp.pdf public/endofcp.pdf
+          # Root URL redirects straight to the PDF -- no page chrome, no white bands.
+          printf '%s\n' \
+            '<!doctype html>' \
+            '<html lang="en"><head><meta charset="utf-8">' \
+            '<meta http-equiv="refresh" content="0; url=endofcp.pdf">' \
+            '<title>EndofCP</title></head>' \
+            '<body><a href="endofcp.pdf">Open the EndofCP PDF</a></body>' \
+            '</html>' \
+            > public/index.html
+          touch public/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

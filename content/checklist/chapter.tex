@@ -1,0 +1,69 @@
+\chapterHeading{Checklist}
+
+\sectionHeading{Mindset}
+\begin{itemize}
+\item Do something instead of nothing, and stay organized.
+\item Write stuff down.
+\item Don't get stuck on one approach.
+\item Rewrite your solution from scratch, or let a teammate do it.
+\end{itemize}
+
+\sectionHeading{Before submitting}
+\begin{enumerate}
+\item Array size overflow? Uninitialized values? 0-index or 1-index?
+\item Think twice, code once --- test all cases.
+\item Corner cases: $n=1$? $k=1$? Something about $0$?
+\item If WA, you are probably missing something common.
+\item Read the statement again --- any missed constraints?
+\item Re-check the idea and all possible counter-cases.
+\item Output format correct (whitespace)? No stray debug prints?
+\item Clearing all data structures between test cases?
+\item Be calm, don't panic --- this problem won't decide your future.
+\item Don't waste too much time; move to the next problem.
+\end{enumerate}
+
+\sectionHeading{Runtime error}
+\begin{itemize}
+\item Tested all corner cases locally?
+\item Any uninitialized variables?
+\item Reading or writing outside the range of any vector?
+\item Any assertion that might fail?
+\item Any possible division by $0$?
+\item Any possible infinite recursion?
+\item Invalidated pointers or iterators?
+\item Using too much memory?
+\end{itemize}
+
+\sectionHeading{Time limit exceeded}
+\begin{itemize}
+\item Any possible infinite loops?
+\item What is the complexity of your algorithm?
+\item Copying a lot of unnecessary data? (use references)
+\item How big is the input/output? (consider fast input)
+\item Avoid \texttt{vector}/\texttt{map} where arrays/\texttt{unordered\_map} fit.
+\end{itemize}
+
+\sectionHeading{Stress testing (bash)}
+\begin{lstlisting}
+#!/usr/bin/bash
+green=$(tput setaf 71); red=$(tput setaf 1)
+blue=$(tput setaf 32);  orange=$(tput setaf 178)
+bold=$(tput bold);      reset=$(tput sgr0)
+
+echo "Compiling..."
+g++ -std=gnu++20 -O2 -DLOCAL -Wall -o test_gen test_gen.cpp
+g++ -std=gnu++20 -O2 -DLOCAL -Wall -o sol      sol.cpp
+g++ -std=gnu++20 -O2 -DLOCAL -Wall -o brute    brute.cpp
+
+for (( i = 1; ; i++ )); do
+    ./test_gen > input.txt
+    if diff -w <(./sol < input.txt) <(./brute < input.txt); then
+        echo "${bold}${green}test $i: Accepted${reset}"
+    else
+        echo "${bold}${red}test $i: Wrong Answer${reset}"
+        echo "${blue}Input:${reset}"
+        cat input.txt
+        break
+    fi
+done
+\end{lstlisting}

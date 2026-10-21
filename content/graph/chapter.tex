@@ -1,0 +1,350 @@
+\chapterHeading{Graph}
+
+\sectionHeading{Binary lifting / LCA}
+\begin{lstlisting}[language=C++]
+vector<vector<int>> cs, bi_parent;
+int LOG = 20, timer = 1;
+
+void dfs(int s, int p) {
+    in_time[s] = timer++;
+    for (auto u : cs[s]) {
+        if (u == p) continue;
+        depth[u] = depth[s] + 1;
+        if (parent[u] == 0) parent[u] = s;
+        dfs(u, s);
+        height[s] = max(height[s], height[u] + 1);
+    }
+    out_time[s] = timer++;
+}
+
+void binary_lifting(int n) {
+    dfs(1, -1);
+    bi_parent[0] = parent;
+    for (int i = 1; i < LOG; i++)
+        for (int j = 1; j <= n; j++) {
+            int p = bi_parent[i - 1][j];
+            bi_parent[i][j] = (p == -1) ? -1 : bi_parent[i - 1][p];
+        }
+}
+
+int kth_ancestor(int n, int k) {
+    int u = n;
+    for (int i = 0; i < LOG; i++)
+        if (k & (1 << i)) {
+            u = bi_parent[i][u];
+            if (u == -1) break;
+        }
+    return u;
+}
+
+int lca(int u, int v) {
+    if (depth[u] < depth[v]) swap(u, v);
+    int d = depth[u] - depth[v];
+    u = kth_ancestor(u, d);
+    if (u == v) return u;
+    for (int i = LOG - 1; i >= 0; i--)
+        if (bi_parent[i][u] != -1 && bi_parent[i][u] != bi_parent[i][v]) {
+            u = bi_parent[i][u];
+            v = bi_parent[i][v];
+        }
+    return bi_parent[0][u];
+}
+
+// distance(u, v) = depth[u] + depth[v] - 2 * depth[lca(u, v)]
+
+int common_node() {   // common node on 4 paths
+    int a, b, c, d; cin >> a >> b >> c >> d;
+    int p = lca(a, b), q = lca(a, d), r = lca(b, d);
+    int x = (p ^ q ^ r);
+    q = lca(a, c), r = lca(b, c);
+    int y = (p ^ q ^ r);
+    if (x == y) {
+        p = lca(a, c), q = lca(a, d), r = lca(c, d);
+        int z = (p ^ q ^ r);
+        return x == z ? 1 : 0;
+    } else {
+        int l = lca(x, y);
+        return depth[x] + depth[y] + 1 - 2 * depth[l];
+    }
+}
+\end{lstlisting}
+
+\sectionHeading{Dijkstra (with path, edge de-duplication)}
+\begin{lstlisting}[language=C++]
+vector<int> dijkstra(vector<pair<int,int>> cs[], int n, int src, int sink) {
+    priority_queue<pair<int,int>, vector<pair<int,int>>,
+                   greater<pair<int,int>>> q;
+    vector<long long> sp(n + 1, LLONG_MAX);
+    vector<int> parent(n + 1, -1);
+    parent[src] = 0; sp[src] = 0;
+    q.push({0, src});
+    while (!q.empty()) {
+        int d = q.top().first, u = q.top().second;
+        q.pop();
+        if (d > sp[u]) continue;
+        for (auto b : cs[u]) {
+            int v = b.first;
+            if (sp[u] + b.second < sp[v]) {
+                sp[v] = sp[u] + b.second;
+                parent[v] = u;
+                q.push({sp[v], v});
+            }
+        }
+    }
+    vector<int> path, seen(n + 1, 0);
+    path.push_back(sink);
+    for (int i = sink; i != src && !seen[i]; ) {
+        seen[i] = 1;
+        path.push_back(parent[i]);
+        i = parent[i];
+    }
+    if (path.back() != src) return {};   // no path
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+// keep only the smallest weight if an edge is given multiple times
+for (int i = 0; i < m; i++) {
+    int x, y, z; cin >> x >> y >> z;
+    bool updated = false;
+    for (auto& edge : cs[x])
+        if (edge.first == y) {
+            if (edge.second > z) edge.second = z;
+            updated = true;
+            break;
+        }
+    for (auto& edge : cs[y])
+        if (edge.first == x) {
+            if (edge.second > z) edge.second = z;
+            break;
+        }
+    if (!updated) {
+        cs[x].push_back({y, z});
+        cs[y].push_back({x, z});
+    }
+}
+\end{lstlisting}
+
+\sectionHeading{K-th shortest path}
+\begin{lstlisting}[language=C++]
+vector<int> dijkstra(vector<pair<int,int>> cs[], int n, int s, int k) {
+    priority_queue<pair<int,int>, vector<pair<int,int>>,
+                   greater<pair<int,int>>> q;
+    vector<vector<int>> sp(n + 1);
+    q.push({0, s});
+    while (!q.empty()) {
+        auto [d, u] = q.top(); q.pop();
+        if (sp[u].size() >= k) continue;
+        sp[u].push_back(d);
+        for (auto [v, w] : cs[u])
+            q.push({d + w, v});
+    }
+    return sp[n];
+}
+\end{lstlisting}
+
+\sectionHeading{Negative cycle (Bellman--Ford)}
+\begin{lstlisting}[language=C++]
+struct info { int u, v, w; };
+
+vector<int> negative_cycle(vector<info> cs, int n, int src, int m) {
+    vector<long long> short_path(n + 1, LLONG_MAX);
+    vector<int> n_cycle, parent(n + 1, -1);
+    short_path[src] = 0;
+    int lst_changed = -1;
+    for (int j = 1; j <= n; j++) {
+        for (int i = 0; i < m; i++) {
+            int u = cs[i].u, v = cs[i].v, w = cs[i].w;
+            if ((short_path[u] + w < short_path[v] &&
+                 short_path[u] != LLONG_MAX) || (u == v && w < 0)) {
+                short_path[v] = max(-LLONG_MAX, short_path[u] + w);
+                parent[v] = u;
+                lst_changed = v;
+            }
+        }
+        if (lst_changed == -1) return n_cycle;
+    }
+    if (lst_changed == -1) return n_cycle;
+    for (int i = 1; i <= n; i++) lst_changed = parent[lst_changed];
+    if (lst_changed == 0) return n_cycle;
+    int y = lst_changed;
+    while (lst_changed != y || n_cycle.empty()) {
+        n_cycle.push_back(lst_changed);
+        lst_changed = parent[lst_changed];
+    }
+    n_cycle.push_back(lst_changed);
+    reverse(n_cycle.begin(), n_cycle.end());
+    return n_cycle;
+}
+\end{lstlisting}
+
+\sectionHeading{Cycle in a directed graph}
+\begin{lstlisting}[language=C++]
+vector<vector<int>> cs;
+vector<int> cycle_path;
+
+bool directed_cycle(int s, vector<int>& ck) {
+    ck[s] = 1;
+    bool bl = 0;
+    for (auto u : cs[s]) {
+        if (ck[u] == 2) continue;
+        if (ck[u] == 1) {
+            cycle_path.push_back(u);
+            cycle_path.push_back(s);
+            return 1;
+        }
+        bl = directed_cycle(u, ck);
+        if (bl) break;
+    }
+    if (bl) cycle_path.push_back(s);
+    if (!bl) ck[s] = 2;
+    return bl;
+}
+
+void solve(int n) {
+    vector<int> ck(n + 1, 0);
+    bool bl = 0;
+    for (int i = 1; i <= n; i++) {
+        if (!ck[i]) bl = directed_cycle(i, ck);
+        if (bl) break;
+    }
+    if (!bl) { cout << "IMPOSSIBLE" << nl; return; }
+    reverse(all(cycle_path));
+    int s, sz = cycle_path.size();
+    for (s = 0; s < sz && cycle_path[s] != cycle_path[sz - 1]; s++) {}
+    cout << sz - s << nl;
+    for (int i = s; i < sz; i++) cout << cycle_path[i] << " ";
+    cout << nl;
+}
+\end{lstlisting}
+
+\sectionHeading{Topological sort}
+\begin{lstlisting}[language=C++]
+vector<int> dgr, ans;
+
+bool topo_sort(int n) {
+    queue<int> q;
+    for (int i = 1; i <= n; i++)
+        if (dgr[i] == 0) q.push(i);
+    while (!q.empty()) {
+        int t = q.front(); q.pop();
+        ans.push_back(t);
+        for (auto a : cs[t]) {
+            dgr[a]--;
+            if (dgr[a] == 0) q.push(a);
+        }
+    }
+    return ans.size() == n;
+}
+\end{lstlisting}
+
+\sectionHeading{DSU / Kruskal}
+\begin{lstlisting}[language=C++]
+vector<int> parent, sz;
+vector<pair<int, pair<int,int>>> edges;
+
+void make(int v) { parent[v] = v; sz[v] = 1; }
+
+int find(int v) {
+    if (v == parent[v]) return v;
+    return parent[v] = find(parent[v]);
+}
+
+void Union(int a, int b) {
+    a = find(a); b = find(b);
+    if (a != b) {
+        if (sz[a] < sz[b]) swap(a, b);
+        parent[b] = a;
+        sz[a] += sz[b];
+    }
+}
+
+long long kruskal(int n) {
+    sort(edges.begin(), edges.end());
+    for (int i = 1; i <= n; i++) make(i);
+    long long cst = 0;
+    for (auto a : edges) {
+        int w = a.first, u = a.second.first, v = a.second.second;
+        if (find(u) == find(v)) continue;
+        Union(u, v);
+        cst += w;
+    }
+    return cst;
+}
+\end{lstlisting}
+
+\sectionHeading{Strongly connected components}
+\begin{lstlisting}[language=C++]
+vector<vector<int>> cs, rs;   // graph and reversed graph
+
+void scc_dfs(int s, vector<int> rs[], vector<int>& ans, int j) {
+    ans[s] = j;
+    for (auto v : rs[s])
+        if (!ans[v]) scc_dfs(v, rs, ans, j);
+}
+
+void stack_de(int s, vector<int> cs[], stack<int>& st, vector<int>& vis) {
+    vis[s] = 1;
+    for (auto v : cs[s])
+        if (!vis[v]) stack_de(v, cs, st, vis);
+    st.push(s);
+}
+
+// Kosaraju: fill the stack on the original graph, then flood-fill
+// components on the reversed graph.
+stack<int> st;
+vector<int> vis(n + 1, 0), ans(n + 1, 0);
+for (int i = 1; i <= n; i++)
+    if (!vis[i]) stack_de(i, cs, st, vis);
+int j = 1;
+while (!st.empty()) {
+    int i = st.top(); st.pop();
+    if (!ans[i]) { scc_dfs(i, rs, ans, j); j++; }
+}
+
+// compressed SCC
+vector<set<int>> dag(n + 1);
+for (int u = 1; u <= n; u++)
+    for (auto v : cs[u])
+        if (ans[u] != ans[v]) dag[ans[u]].insert(ans[v]);
+
+// merge component sizes into the component representative
+for (int i = 1; i <= n; i++)
+    if (ans[i] != i) cn[ans[i]] += cn[i];
+\end{lstlisting}
+
+\sectionHeading{Hamiltonian path from 1 to n}
+\begin{lstlisting}[language=C++]
+int dp[1 << 20][20];
+
+int dfs(int i, int mask, vector<int> cs[], int n) {
+    if (i == n && __builtin_popcount(mask) != n) return 0;
+    if (dp[mask][i] != -1) return dp[mask][i];
+    if (__builtin_popcount(mask) == n) return i == n;
+    int r = 0;
+    for (auto v : cs[i]) {
+        if (mask & (1 << (v - 1))) continue;
+        r = (r + dfs(v, mask | (1 << (v - 1)), cs, n)) % mod;
+    }
+    return dp[mask][i] = r;
+}
+\end{lstlisting}
+
+\sectionHeading{Euler circuit}
+\begin{lstlisting}[language=C++]
+void Euler_circuit(int u) {
+    stack<int> st; st.push(u);
+    while (!st.empty()) {
+        int v = st.top();
+        if (!deg[v]) {
+            ans.push_back(v); st.pop();
+        } else {
+            int x = *cs[v].begin();
+            deg[v]--; deg[x]--;
+            cs[v].erase(cs[v].begin());
+            cs[x].erase(v);
+            st.push(x);
+        }
+    }
+}
+\end{lstlisting}

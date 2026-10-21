@@ -1,0 +1,54 @@
+\chapterHeading{Contest}
+
+\subHeading{Fast IO and pragmas}
+\begin{lstlisting}[language=C++]
+ios_base::sync_with_stdio(0); cin.tie(0); cout.tie(0);
+
+#pragma GCC optimize("O3,unroll-loops")
+#pragma GCC optimize("Ofast")
+#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+\end{lstlisting}
+
+\subHeading{PBDS ordered set}
+\begin{lstlisting}[language=C++]
+#include <ext/pb_ds/assoc_container.hpp>
+#include <ext/pb_ds/tree_policy.hpp>
+using namespace __gnu_pbds;
+
+template<class T>using ord_set = tree<T, null_type, less<T>,
+    rb_tree_tag, tree_order_statistics_node_update>;
+
+// number of elements strictly less than x   O(log n)
+   order_of_key(x): 
+// iterator to the k-th smallest, 0-indexed  O(log n)
+   find_by_order(k): 
+
+// erase cs[i] from the set:
+   auto it = st.find_by_order(st.order_of_key(cs[i]));
+   st.erase(it);
+
+const ld PI = acos(-1.0);
+\end{lstlisting}
+
+\subHeading{Sublime setup (Linux)}
+\begin{lstlisting}
+{
+  "shell_cmd": "g++ -O2 \"${file}\" -o \"${file_base_name}\" && ./\"${file_base_name}\" < \"${file_path}/input.txt\" > \"${file_path}/output.txt\"",
+  "working_dir": "${file_path}",
+  "selector": "source.c++, source.cpp"
+}
+\end{lstlisting}
+
+\subHeading{Sublime setup (Windows)}
+\begin{lstlisting}
+{
+  "shell_cmd": "g++ \"$file\" -o \"$file_base_name\" && \"$file_base_name\" < input.txt > output.txt",
+  "selector": "source.c++",
+  "working_dir": "${file_path}"
+}
+
+
+
+
+\end{lstlisting}
+

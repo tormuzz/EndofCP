@@ -1,0 +1,31 @@
+\documentclass[8pt, a4paper, notitlepage]{extreport}
+\usepackage{endofcp}
+\eocpcontentdir{content}
+
+\university{BUBT}{Bangladesh University of Business and Technology}{}
+\team{Leave\_us\_alone\_BUBT}{Rubai, Nafees, Tahjib}
+\contest{ICPC Dhaka Regional}{\today}
+
+% Heading commands (defined in content/tex/endofcp.sty):
+%   \chapterHeading  -> H1    e.g. Contest
+%   \sectionHeading  -> H3    e.g. Setup
+%   \subHeading      -> H5    e.g. Linux / Windows
+
+\begin{document}
+	\begin{multicols*}{3}
+	\thispagestyle{fancy}
+	% Table of contents, without subsections:
+	\setcounter{tocdepth}{0}
+	\tableofcontents
+
+	\eocpchapter{contest}
+	\eocpchapter{misc}
+	\eocpchapter{math}
+	\eocpchapter{datastructures}
+	\eocpchapter{numbertheory}
+	\eocpchapter{strings}
+	\eocpchapter{geometry}
+	\eocpchapter{checklist}
+	% \eocpchapter{graph}   % added later
+	\end{multicols*}
+\end{document}

@@ -1,0 +1,150 @@
+\chapterHeading{Miscellaneous}
+
+
+\subHeading{Statement notes}
+\begin{itemize}
+\item leap year: \texttt{(!(y\%4) \&\& (y\%100)) || !(y\%400)}
+\item Harmonic series generates at most $2\sqrt{N}$ distinct values of $\lfloor N/i \rfloor$.
+\item Prime gap: $\log^2 N$.
+\item Sometimes from any index $i$, the cost is (cost from 1 to destination $-$ destination distance).
+\item \strong{mean} works on Euclidean distance; \strong{median} works on Manhattan distance.
+\item To avoid TLE with \texttt{map}/\texttt{unordered\_map}:
+\begin{lstlisting}[language=C++]
+unordered_map<int, int> mp;
+mp.reserve(n * n);
+\end{lstlisting}
+\item Combine a pair into a single hash value:
+\begin{lstlisting}[language=C++]
+// both non-negative:
+   ((uint64_t)p.first << 32) | p.second;
+// if a negative may occur:
+   ((int)x << 32) | (y & 0xffffffffLL);
+\end{lstlisting}
+\end{itemize}
+
+\subHeading{Adhoc}
+\begin{itemize}
+\item prefix value / suffix value / prefix $+$ suffix value
+\item print all answers for 1 to 100 and look for a pattern
+\item check the equation by value
+\item check units for equation validity
+\item symmetric cases
+\item the values don't matter, the order does
+\end{itemize}
+
+\subHeading{Bit tricks}
+\begin{lstlisting}[language=C++]
+__builtin_popcountll(n);  // number of set bits
+__builtin_clzll(x);       // leading zeros
+__builtin_ctz(x);         // trailing zeros
+__builtin_ffs(x);         // index of first set bit
+__lg(x);                  // highest set bit (n != 0)
+bit.to_ullong();          // bitset -> unsigned long long
+
+((n & (1 << i)) != 0);    // i-th bit set?
+n = (n | (1 << i));       // set i-th bit
+n = (n & (~(1 << i)));    // clear i-th bit
+n = (n ^ (1 << i));       // toggle i-th bit
+n = (n & (n - 1));        // clear rightmost set bit
+x = !5;                   // x = -6
+
+// n         = 00110100
+// n-1       = 00110011
+// n & (n-1) = 00110000
+\end{lstlisting}
+The number of set bits among numbers up to $2^x$ is $x \cdot 2^{x-1}$.
+
+\subHeading{Useful functions}
+\begin{lstlisting}[language=C++]
+expl(x); // e^x		also logl, log10l, log2l, cbrtl
+// remove duplicates (sorted)
+   vec.erase(unique(all(vec)), vec.end());   
+double (*\codebf{log_x_of_base_b}*)(int x, int b)
+   return log(x)/log(b);	// log of x in base b
+// convert x from base b1 to base b2
+double (*\codebf{base_b1_to_b2}*)(int x, int b1, int b2)
+     return log_x_of_base_b(x, b1)/log_x_of_base_b(b2, b1);
+// digit sum until a single digit
+cout << (n % 9 ? n % 9 : n ? 9 : 0) << nl;
+//parse in any base
+int x = (*\codebf{stoll}*)(binaryNumber, nullptr, 2); 
+// leap years in (l, r]
+int (*\codebf{LeapYearInRange}*)(int r, int l) {        
+    l--;
+    int R = r / 4 - r / 100 + r / 400;
+    int L = l / 4 - l / 100 + l / 400;
+    return R - L;
+}
+\end{lstlisting}
+
+\subHeading{Principle of Inclusion and Exclusion}
+\[|A \cup B \cup C| = |A| + |B| + |C| - |A \cap B| - |A \cap C| - |B \cap C| + |A \cap B \cap C|\]
+\begin{lstlisting}[language=C++]
+int PIE(vector<int>& v, int n, int m) {   // O(2^n * n)
+    int even = 0, odd = 0;
+    for (int mask = 1; mask < (1LL << n); mask++) {
+        int tmp = m;
+        for (int i = 0; i < n; i++)
+            if (mask & (1LL << i)) tmp /= v[i];
+        if (__builtin_popcountll(mask) & 1) odd += tmp;
+        else even += tmp;
+    }
+    return odd - even;
+}
+\end{lstlisting}
+
+\subHeading{LCS via LIS}
+\begin{lstlisting}[language=C++]
+// LCS -> LIS:
+// Store the positions of each value of A in B.
+// For each A[i], add its B positions to cs in REVERSE order
+//   (this handles duplicates).
+// LCS length = LIS(cs).
+// If each value occurs <= K times: |cs| <= N*K
+// TC: O(N*K log(N*K)); worst O(N^2 log N) if one value occurs n times.
+\end{lstlisting}
+
+\subHeading{Ternary search}
+\begin{lstlisting}[language=C++]
+m1 = lo + (hi - lo) / 3.0;
+m2 = hi - (hi - lo) / 3.0;
+\end{lstlisting}
+
+\iffalse
+\sectionHeading{Matrix}
+\begin{lstlisting}[language=C++]
+struct Matrix {
+    vector<vector<int>> v;
+    int get(int r, int c) { return v[r][c]; }
+    int rowCount() { return v.size(); }
+    int colCount() { return v[0].size(); }
+};
+
+Matrix operator*(Matrix a, Matrix b) {
+    Matrix result;
+    int p = a.rowCount(), q = a.colCount();   // q = b.rowCount()
+    int r = b.colCount();
+    result.v.resize(p);
+    for (int i = 0; i < p; i++) result.v[i].resize(r);
+    for (int i = 0; i < p; i++)
+        for (int j = 0; j < q; j++)
+            for (int k = 0; k < r; k++)
+                result.v[i][k] += a.get(i, j) * b.get(j, k);
+    return result;
+}
+
+Matrix MatExpo(Matrix X, int p) {
+    Matrix result;
+    int r = X.rowCount();
+    result.v.resize(r);
+    for (int i = 0; i < r; i++) result.v[i].resize(r);
+    for (int i = 0; i < r; i++) result.v[i][i] = 1;
+    while (p) {
+        if (p & 1) result = result * X;
+        X = X * X;
+        p >>= 1;
+    }
+    return result;
+}
+\end{lstlisting}
+\fi

@@ -1,0 +1,19 @@
+# LaTeX build output
+build/
+*.aux
+*.log
+*.out
+*.toc
+*.ptc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Misc
+*.gch
+a.out
+.vscode
+.commandcode/
+
+# stray test output
+/t.pdf

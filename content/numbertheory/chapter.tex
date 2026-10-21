@@ -1,0 +1,145 @@
+\chapterHeading{Number theory}
+
+\sectionHeading{Sieve of Eratosthenes}
+\begin{lstlisting}[language=C++]
+const int N = 1e7 + 5;
+bitset<N> composite;
+vector<int> primes;
+
+void sieve() {
+    composite[0] = composite[1] = 1;
+    for (int i = 2; i < N; i++) {
+        if (composite[i]) continue;
+        primes.push_back(i);
+        for (long long j = 1LL * i * i; j < N; j += i) composite[j] = 1;
+    }
+}
+\end{lstlisting}
+
+\sectionHeading{Segmented sieve (primes in [a, b])}
+\begin{lstlisting}[language=C++]
+vector<long long> segmentedSieve(long long a, long long b) {
+    // assumes sieve() has already filled primes up to sqrt(b)
+    vector<bool> isPrime(b - a + 1, true);
+    if (a == 1) isPrime[0] = false;
+    for (int p : primes) {
+        if (1LL * p * p > b) break;
+        long long start = max(1LL * p * p, (a + p - 1) / p * p);
+        for (long long j = start; j <= b; j += p) isPrime[j - a] = false;
+    }
+    vector<long long> res;
+    for (long long i = a; i <= b; i++)
+        if (isPrime[i - a]) res.push_back(i);
+    return res;
+}
+\end{lstlisting}
+
+\sectionHeading{Number of divisors}
+\begin{lstlisting}[language=C++]
+const int N = 1e6 + 5;
+int divisors[N];
+
+void precomputeDivisors() {
+    for (int i = 1; i < N; i++)
+        for (int j = i; j < N; j += i) divisors[j]++;
+}
+\end{lstlisting}
+
+\sectionHeading{Sum of divisors}
+\begin{lstlisting}[language=C++]
+const int N = 1e6 + 5;
+long long divSum[N];
+
+void precomputeDivisorSum() {
+    for (int i = 1; i < N; i++)
+        for (int j = i; j < N; j += i) divSum[j] += i;
+}
+\end{lstlisting}
+
+\sectionHeading{Euler's totient (phi)}
+\begin{lstlisting}[language=C++]
+const int N = 1e6 + 5;
+int phi[N];
+
+void precomputePhi() {                 // O(N log log N)
+    for (int i = 1; i < N; i++) phi[i] = i;
+    for (int i = 2; i < N; i++)
+        if (phi[i] == i)
+            for (int j = i; j < N; j += i) phi[j] -= phi[j] / i;
+}
+
+int eulerPhi(int n) {                  // single value, O(sqrt n)
+    int res = n;
+    for (long long i = 2; i * i <= n; i++)
+        if (n % i == 0) {
+            while (n % i == 0) n /= i;
+            res -= res / i;
+        }
+    if (n > 1) res -= res / n;
+    return res;
+}
+\end{lstlisting}
+
+\sectionHeading{Big mod (modular exponentiation)}
+\begin{lstlisting}[language=C++]
+long long bigMod(long long a, long long b, long long mod) {
+    long long ans = 1;
+    a %= mod;
+    while (b) {
+        if (b & 1) ans = ans * a % mod;
+        a = a * a % mod;
+        b >>= 1;
+    }
+    return ans;
+}
+
+// a, b, mod up to 1e18: use 128-bit multiplication
+long long mulMod(long long a, long long b, long long m) {
+    return (__int128)a * b % m;
+}
+long long bigMod128(long long a, long long b, long long m) {
+    long long ans = 1;
+    a %= m;
+    while (b) {
+        if (b & 1) ans = mulMod(ans, a, m);
+        a = mulMod(a, a, m);
+        b >>= 1;
+    }
+    return ans;
+}
+\end{lstlisting}
+
+\sectionHeading{nCr}
+\begin{lstlisting}[language=C++]
+const int MX = 1e6 + 5;
+long long fact[MX], invFact[MX];
+
+void precomputeFact(long long mod) {
+    fact[0] = 1;
+    for (int i = 1; i < MX; i++) fact[i] = fact[i - 1] * i % mod;
+    invFact[MX - 1] = bigMod(fact[MX - 1], mod - 2, mod);
+    for (int i = MX - 1; i > 0; i--) invFact[i - 1] = invFact[i] * i % mod;
+}
+
+long long nCr(int n, int r, long long mod) {       // mod prime
+    if (r < 0 || r > n) return 0;
+    return fact[n] * invFact[r] % mod * invFact[n - r] % mod;
+}
+
+long long nCrNoMod(int n, int r) {                 // O(r), no mod
+    if (r < 0 || r > n) return 0;
+    r = min(r, n - r);
+    long long res = 1;
+    for (int i = 1; i <= r; i++) res = res * (n - r + i) / i;
+    return res;
+}
+\end{lstlisting}
+
+\sectionHeading{Josephus problem}
+\begin{lstlisting}[language=C++]
+int josephus(int n, int k) {           // 1-based survivor, O(n)
+    int res = 0;
+    for (int i = 1; i <= n; i++) res = (res + k) % i;
+    return res + 1;
+}
+\end{lstlisting}

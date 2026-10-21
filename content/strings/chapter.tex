@@ -1,0 +1,211 @@
+\chapterHeading{Strings}
+
+\sectionHeading{Trie}
+\begin{lstlisting}[language=C++]
+struct Trie {
+    static const int ALPHA = 26;
+    struct Node {
+        int nxt[ALPHA], pass = 0, end = 0;
+        Node() { fill(nxt, nxt + ALPHA, -1); }
+    };
+    vector<Node> t;
+    Trie() { t.emplace_back(); }
+
+    void insert(const string& s) {
+        int u = 0; t[u].pass++;
+        for (char c : s) {
+            int i = c - 'a';
+            if (t[u].nxt[i] == -1) { t[u].nxt[i] = (int)t.size(); t.emplace_back(); }
+            u = t[u].nxt[i]; t[u].pass++;
+        }
+        t[u].end++;
+    }
+    bool contains(const string& s) {
+        int u = 0;
+        for (char c : s) {
+            int i = c - 'a';
+            if (t[u].nxt[i] == -1) return false;
+            u = t[u].nxt[i];
+        }
+        return t[u].end > 0;
+    }
+    int countPrefix(const string& s) {     // strings having s as prefix
+        int u = 0;
+        for (char c : s) {
+            int i = c - 'a';
+            if (t[u].nxt[i] == -1) return 0;
+            u = t[u].nxt[i];
+        }
+        return t[u].pass;
+    }
+};
+\end{lstlisting}
+
+\sectionHeading{KMP}
+\begin{lstlisting}[language=C++]
+vector<int> prefixFunction(const string& s) {
+    int n = s.size();
+    vector<int> pi(n);
+    for (int i = 1; i < n; i++) {
+        int j = pi[i - 1];
+        while (j && s[i] != s[j]) j = pi[j - 1];
+        if (s[i] == s[j]) j++;
+        pi[i] = j;
+    }
+    return pi;
+}
+
+vector<int> kmp(const string& s, const string& p) {   // match positions
+    vector<int> pi = prefixFunction(p), res;
+    int j = 0;
+    for (int i = 0; i < (int)s.size(); i++) {
+        while (j && s[i] != p[j]) j = pi[j - 1];
+        if (s[i] == p[j]) j++;
+        if (j == (int)p.size()) { res.push_back(i - j + 1); j = pi[j - 1]; }
+    }
+    return res;
+}
+\end{lstlisting}
+
+\sectionHeading{Z-function}
+\begin{lstlisting}[language=C++]
+vector<int> zFunction(const string& s) {
+    int n = s.size();
+    vector<int> z(n);
+    for (int i = 1, l = 0, r = 0; i < n; i++) {
+        if (i <= r) z[i] = min(r - i + 1, z[i - l]);
+        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
+        if (i + z[i] - 1 > r) l = i, r = i + z[i] - 1;
+    }
+    return z;
+}
+// occurrences of pattern p in text t: z_function(p + '#' + t)
+\end{lstlisting}
+
+\sectionHeading{Manacher}
+\begin{lstlisting}[language=C++]
+// odd[i]  = radius of longest odd palindrome centered at i  (length 2*odd[i]-1)
+// even[i] = radius of longest even palindrome centered at i (length 2*even[i])
+void manacher(const string& s, vector<int>& odd, vector<int>& even) {
+    int n = s.size();
+    odd.assign(n, 0); even.assign(n, 0);
+    for (int i = 0, l = 0, r = -1; i < n; i++) {
+        int k = (i > r) ? 1 : min(odd[l + r - i], r - i + 1);
+        while (i - k >= 0 && i + k < n && s[i - k] == s[i + k]) k++;
+        odd[i] = k;
+        if (i + k - 1 > r) l = i - k + 1, r = i + k - 1;
+    }
+    for (int i = 0, l = 0, r = -1; i < n; i++) {
+        int k = (i > r) ? 0 : min(even[l + r - i + 1], r - i + 1);
+        while (i - k - 1 >= 0 && i + k < n && s[i - k - 1] == s[i + k]) k++;
+        even[i] = k;
+        if (i + k - 1 > r) l = i - k, r = i + k - 1;
+    }
+}
+\end{lstlisting}
+
+\sectionHeading{Booth (minimal rotation)}
+\begin{lstlisting}[language=C++]
+int minRotation(const string& s) {          // O(n), returns start index
+    int n = s.size();
+    string t = s + s;
+    vector<int> f(2 * n, -1);
+    int k = 0;
+    for (int j = 1; j < 2 * n; j++) {
+        int i = f[j - k - 1];
+        while (i != -1 && t[j] != t[k + i + 1]) {
+            if (t[j] < t[k + i + 1]) k = j - i - 1;
+            i = f[i];
+        }
+        if (t[j] != t[k + i + 1]) {
+            if (t[j] < t[k]) k = j;
+            f[j - k] = -1;
+        } else f[j - k] = i + 1;
+    }
+    return k;
+}
+\end{lstlisting}
+
+\sectionHeading{Duval (Lyndon factorization)}
+\begin{lstlisting}[language=C++]
+vector<string> duval(const string& s) {     // O(n)
+    int n = s.size(), i = 0;
+    vector<string> res;
+    while (i < n) {
+        int j = i + 1, k = i;
+        while (j < n && s[k] <= s[j]) {
+            if (s[k] < s[j]) k = i; else k++;
+            j++;
+        }
+        while (i <= k) { res.push_back(s.substr(i, j - k)); i += j - k; }
+    }
+    return res;
+}
+\end{lstlisting}
+
+\sectionHeading{Aho--Corasick}
+\begin{lstlisting}[language=C++]
+struct AhoCorasick {
+    static const int ALPHA = 26;
+    vector<array<int, ALPHA>> nxt;
+    vector<int> link, outLink;
+    vector<vector<int>> out;
+
+    AhoCorasick() { addNode(); }
+    int addNode() {
+        nxt.push_back({}); nxt.back().fill(0);
+        link.push_back(0); outLink.push_back(0); out.push_back({});
+        return (int)nxt.size() - 1;
+    }
+    void insert(const string& s, int id) {
+        int u = 0;
+        for (char c : s) {
+            int x = c - 'a';
+            if (!nxt[u][x]) nxt[u][x] = addNode();
+            u = nxt[u][x];
+        }
+        out[u].push_back(id);
+    }
+    void build() {
+        queue<int> q; q.push(0);
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (int c = 0; c < ALPHA; c++) {
+                int v = nxt[u][c];
+                if (!v) nxt[u][c] = u ? nxt[link[u]][c] : 0;
+                else {
+                    link[v] = u ? nxt[link[u]][c] : 0;
+                    outLink[v] = out[link[v]].empty() ? outLink[link[v]] : link[v];
+                    q.push(v);
+                }
+            }
+        }
+    }
+};
+\end{lstlisting}
+
+\sectionHeading{Double rolling hash}
+\begin{lstlisting}[language=C++]
+struct DoubleHash {
+    static const int M1 = 1e9 + 7, M2 = 1e9 + 9;
+    static const int B1 = 911382323, B2 = 972663749;
+    vector<int> h1, h2, p1, p2;
+
+    DoubleHash(const string& s) {
+        int n = s.size();
+        h1.assign(n + 1, 0); h2.assign(n + 1, 0);
+        p1.assign(n + 1, 1); p2.assign(n + 1, 1);
+        for (int i = 0; i < n; i++) {
+            h1[i + 1] = ((long long)h1[i] * B1 + s[i]) % M1;
+            h2[i + 1] = ((long long)h2[i] * B2 + s[i]) % M2;
+            p1[i + 1] = (long long)p1[i] * B1 % M1;
+            p2[i + 1] = (long long)p2[i] * B2 % M2;
+        }
+    }
+    pair<int, int> get(int l, int r) {        // hash of s[l..r], inclusive
+        int x1 = (h1[r + 1] - (long long)h1[l] * p1[r - l + 1] % M1 + M1) % M1;
+        int x2 = (h2[r + 1] - (long long)h2[l] * p2[r - l + 1] % M2 + M2) % M2;
+        return {x1, x2};
+    }
+};
+\end{lstlisting}
