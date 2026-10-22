@@ -1,39 +1,46 @@
 \chapterHeading{Number theory}
 
-\sectionHeading{Sieve of Eratosthenes}
+\sectionHeading{Segmented sieve ( primes in [L, R] )}
+\noindent
+\textbf{Constraints:} $R \le 10^{14}$ and $(R-L+1)$ \le \; $\sim[10^6 - 10^7$]\\
+\textbf{Time:} $O((R-L+1)\log\log R + \sqrt{R}\log\log\sqrt{R})$ \\
+\textbf{Space:} $O((R-L+1) + \sqrt{R})$ \\
+\textbf{Assumes:} ``\textbf{prime}" contains all primes up to $\sqrt{R}$
 \begin{lstlisting}[language=C++]
-const int N = 1e7 + 5;
-bitset<N> composite;
-vector<int> primes;
+int segmentedSieve(int a, int b){
+    if(a>b) swap(a, b);
+    if(b<2) return 0;
+    a=max(a, 2ll);
 
-void sieve() {
-    composite[0] = composite[1] = 1;
-    for (int i = 2; i < N; i++) {
-        if (composite[i]) continue;
-        primes.push_back(i);
-        for (long long j = 1LL * i * i; j < N; j += i) composite[j] = 1;
+    int rangeSize = b-a+1;
+    vector<bool>isPrime(rangeSize, 1);
+
+    for(int p: prime){
+        if(p>b/p) break;
+
+        // First multiple of p >= a: ceil(a / p) * p
+        int start = a + (p - a % p) % p;
+        
+        // Any multiple smaller than p * p was already marked by a smaller prime
+        start=max(start, p*p);
+
+        // Mark all multiples in [a, b]
+        for(int j=start; j<=b; j+=p) isPrime[j-a]=0;
     }
+    int cnt=0;
+    // vector<int>res;
+    for(int i=0; i<rangeSize; i++) {
+        if(isPrime[i]){
+            cnt++;
+            // res.push_back(a+i);
+            cout<<a+i<<nl;
+        }
+    }
+    return cnt;
 }
 \end{lstlisting}
 
-\sectionHeading{Segmented sieve (primes in [a, b])}
-\begin{lstlisting}[language=C++]
-vector<long long> segmentedSieve(long long a, long long b) {
-    // assumes sieve() has already filled primes up to sqrt(b)
-    vector<bool> isPrime(b - a + 1, true);
-    if (a == 1) isPrime[0] = false;
-    for (int p : primes) {
-        if (1LL * p * p > b) break;
-        long long start = max(1LL * p * p, (a + p - 1) / p * p);
-        for (long long j = start; j <= b; j += p) isPrime[j - a] = false;
-    }
-    vector<long long> res;
-    for (long long i = a; i <= b; i++)
-        if (isPrime[i - a]) res.push_back(i);
-    return res;
-}
-\end{lstlisting}
-
+\iffalse
 \sectionHeading{Number of divisors}
 \begin{lstlisting}[language=C++]
 const int N = 1e6 + 5;
@@ -55,91 +62,153 @@ void precomputeDivisorSum() {
         for (int j = i; j < N; j += i) divSum[j] += i;
 }
 \end{lstlisting}
+\fi
 
-\sectionHeading{Euler's totient (phi)}
+\sectionHeading{Euler's Totient ( Phi )}
+\codebf{Count integers in [1, n] coprime to n}
+\subHeading{Single value \hfill Time: O$(\sqrt{n})$}
 \begin{lstlisting}[language=C++]
-const int N = 1e6 + 5;
-int phi[N];
+int eulerPhi(int n) {
+    int res=n;
+    for(int i = 2; i*i<=n; i++)
+        if(n%i==0) {
+            while(n%i==0) n/=i;
+            res-=res/i;
+        }
+    if(n>1) res-=res/n;
+    return res;
+}
+\end{lstlisting}
 
-void precomputePhi() {                 // O(N log log N)
+\subHeading{Precompute( 1 to N ) \hfill Time: O$(n log log n)$}
+\begin{lstlisting}[language=C++]
+void precomputePhi() {
     for (int i = 1; i < N; i++) phi[i] = i;
     for (int i = 2; i < N; i++)
         if (phi[i] == i)
             for (int j = i; j < N; j += i) phi[j] -= phi[j] / i;
 }
-
-int eulerPhi(int n) {                  // single value, O(sqrt n)
-    int res = n;
-    for (long long i = 2; i * i <= n; i++)
-        if (n % i == 0) {
-            while (n % i == 0) n /= i;
-            res -= res / i;
+\end{lstlisting}
+\subHeading{Precompute( 1 to N ) \hfill Time: O$(n)$}
+\begin{lstlisting}[language=C++]
+void precomputePhiLinear(){ // N<=1e7
+    phi[1]=1;
+    for(int i=2; i<N; i++){
+        if(!is_composite[i]){
+            primes.push_back(i);
+            phi[i]=i-1;
         }
-    if (n > 1) res -= res / n;
-    return res;
+        for(int p: primes) {
+            if(i*p>=N) break;
+            is_composite[i*p]=1;
+            if(i%p==0){
+                phi[i*p]=phi[i]*p;
+                break;
+            } else {
+                phi[i*p]=phi[i]*(p-1);
+            }
+        }
+    }
 }
 \end{lstlisting}
 
-\sectionHeading{Big mod (modular exponentiation)}
-\begin{lstlisting}[language=C++]
-long long bigMod(long long a, long long b, long long mod) {
-    long long ans = 1;
-    a %= mod;
-    while (b) {
-        if (b & 1) ans = ans * a % mod;
-        a = a * a % mod;
-        b >>= 1;
-    }
-    return ans;
+\sectionHeading{Binary exponentiation}
+\begin{lstlisting}[language=C++, mathescape=true]
+// base, pow, mod $\le 10^{18}$ // 128-bit multiplication
+int mulMod(int a, int b, int mod){
+    return (__int128) a*b % mod;
 }
-
-// a, b, mod up to 1e18: use 128-bit multiplication
-long long mulMod(long long a, long long b, long long m) {
-    return (__int128)a * b % m;
-}
-long long bigMod128(long long a, long long b, long long m) {
-    long long ans = 1;
-    a %= m;
-    while (b) {
-        if (b & 1) ans = mulMod(ans, a, m);
-        a = mulMod(a, a, m);
-        b >>= 1;
+int bigMod(int base, int pow, int mod){
+    int res=1% mod;
+    base=(base%mod +mod) %mod;
+    while(pow){
+        if(pow&1) res = mulMod(res, base, mod);
+        base = mulMod(base, base, mod);
+        pow>>=1;
     }
-    return ans;
+    return res;
 }
 \end{lstlisting}
 
 \sectionHeading{nCr}
 \begin{lstlisting}[language=C++]
-const int MX = 1e6 + 5;
-long long fact[MX], invFact[MX];
-
-void precomputeFact(long long mod) {
+void precomputeFact(int mod) {
     fact[0] = 1;
-    for (int i = 1; i < MX; i++) fact[i] = fact[i - 1] * i % mod;
-    invFact[MX - 1] = bigMod(fact[MX - 1], mod - 2, mod);
-    for (int i = MX - 1; i > 0; i--) invFact[i - 1] = invFact[i] * i % mod;
+    for(int i=1; i<MX; i++) fact[i]=fact[i-1]*i %mod;
+    invFact[MX-1]=bigMod(fact[MX-1], mod-2, mod);
+    for(int i=MX-1; i>0; i--) 
+    	invFact[i-1]=invFact[i]*i %mod;
 }
 
-long long nCr(int n, int r, long long mod) {       // mod prime
+int nCr(int n, int r, int mod){ (*\hfill*) // mod prime
     if (r < 0 || r > n) return 0;
-    return fact[n] * invFact[r] % mod * invFact[n - r] % mod;
+    return fact[n]*invFact[r] %mod *invFact[n-r] %mod;
 }
 
-long long nCrNoMod(int n, int r) {                 // O(r), no mod
-    if (r < 0 || r > n) return 0;
-    r = min(r, n - r);
-    long long res = 1;
-    for (int i = 1; i <= r; i++) res = res * (n - r + i) / i;
+int nCrNoMod(int n, int r){ (*\hfill*) // O(r), no mod
+    if(r<0 || r>n) return 0;
+    r = min(r, n-r);
+    int res=1;
+    for(int i=1; i<=r; i++) res=res*(n-r+i)/i;
     return res;
+}
+
+void precalc(){(*\hfill*) // O(N^2) Precalc nCr (prime/non prime)
+    for(int i=0; i<N; i++) {
+        nCr[i][0]=1; 
+        for(int j=1; j<=i; j++) {
+            nCr[i][j] = (nCr[i-1][j-1] + nCr[i-1][j])%mod;
+        }
+    }
 }
 \end{lstlisting}
 
 \sectionHeading{Josephus problem}
 \begin{lstlisting}[language=C++]
-int josephus(int n, int k) {           // 1-based survivor, O(n)
+int josephus(int n, int k){ (*\hfill*) 1-based survivor, O(n)
     int res = 0;
     for (int i = 1; i <= n; i++) res = (res + k) % i;
     return res + 1;
+}
+\end{lstlisting}
+
+
+
+
+\sectionHeading{Gaussian elimination}
+\begin{lstlisting}[language=C++]
+int Gauss(vector<vector<int>> a, vector<int> &ans){
+  int n=sz(a), m=sz(a[0])-1;
+  vector<int>pos(m, -1);
+  const int MODSQ=(int) mod*mod;
+  int free_var=0, det=1, rank=0;
+  for(int col=0, row=0; col<m && row<n; col++) {
+    int mx=row;
+    for(int k=row; k<n; k++) if(a[k][col] > a[mx][col]) mx=k;
+    if(a[mx][col]==0){ det=0; continue; }
+    for(int j=col; j<=m; j++) swap(a[mx][j], a[row][j]);
+    if(row!=mx) det=det==0 ? 0 : mod-det;
+    det=det*a[row][col]%mod; pos[col]=row;
+    int inv=power(a[row][col], mod-2);
+    for(int i=0; i<n && inv; i++){
+      if(i!=row && a[i][col]) {
+        int x=(a[i][col]*inv)%mod;
+        for(int j=col; j<=m && x; j++)
+          if(a[row][j]) a[i][j]=(MODSQ+a[i][j]-(a[row][j]*x))%mod;
+      }
+    }
+    row++; ++rank;
+  }
+  ans.assign(m, 0);
+  for(int i=0; i<m; i++){
+    if(pos[i]==-1) free_var++;
+    else ans[i]=(a[pos[i]][m]*power(a[pos[i]][i], mod-2))%mod;
+  }
+  for(int i=0; i<n; i++) {
+    int val=0;
+    for(int j=0; j<m; j++) val=(val+(ans[j]*a[i][j]))%mod;
+    if(val!=a[i][m]) return -1; //no solution
+  }
+  return free_var; //has solution
 }
 \end{lstlisting}

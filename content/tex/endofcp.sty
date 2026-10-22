@@ -136,13 +136,15 @@
 %  -----   --------------      ------------------------------------------
 %   H1     \chapter             huge, bold, UNDERLINED, numbered "(n)"
 %   H3     \section             LARGE, bold, no underline, numbered "1.2"
-%          \subsection          large, bold
-%          \subsubsection       large, bold
+%   H5     \subHeading          small bold + full-column rule
 %
 %  Named wrappers for the .tex files:
 %     \chapterHeading{...}  -> H1  (chapter  + underline)
 %     \sectionHeading{...}  -> H3  (section, no underline)
-%     \subHeading{...}      ->     small bold + full-column rule
+%     \subHeading{...}      -> H5  (small bold + full-column rule)
+%
+%  These are the only three heading levels used; \subsection and
+%  \subsubsection are aliased to \subHeading below.
 % ============================================================================
 \renewcommand\chapter{%
   \global\@topnum\z@
@@ -161,22 +163,18 @@
 }
 
 % ---- H3: section (no underline) -------------------------------------------
+% parskip.sty subtracts its (rubber) \parskip from these skips; since they are
+% smaller than \parskip the afterskip went negative and multicols then stretched
+% it unevenly. Adding \parskip back makes the net afterskip a rigid value.
 \renewcommand\section{\@startsection{section}{1}{\z@}%
-  {-0.5ex \@plus -1ex \@minus -.2ex}{1ex}%
+  {-0.5ex \@plus -1ex \@minus -.2ex}%
+  {\dimexpr\parskip+.0ex\relax \@plus 2pt \@minus 0pt}%
   {\lorafont\LARGE\bfseries}}
-
-\renewcommand\subsection{\@startsection{subsection}{2}{\z@}
-  {1ex\@plus -1ex \@minus -.3ex}{.2ex}%
-  {\lorafont\large\bfseries}}
-
-\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}
-  {1ex\@plus -1ex \@minus -.3ex}{1ex \@plus .2ex}%
-  {\lorafont\large\bfseries}}
 
 % ---- Named heading commands -----------------------------------------------
 \newcommand{\chapterHeading}[1]{\chapter{#1}}   % H1
 \newcommand{\sectionHeading}[1]{\section{#1}}   % H3
-\newcommand{\subHeading}[1]{%                    % bold + full-column rule
+\newcommand{\subHeading}[1]{%                   % bold + full-column rule
   \par\vspace{3pt}\noindent
   \vbox{%
     \hbox to\linewidth{\lorafont\bfseries #1\hfil}%
@@ -185,6 +183,8 @@
   }\par\nobreak
   \vspace{1pt}%
 }
+\let\subsection\subHeading                      % no separate 4th/5th level
+\let\subsubsection\subHeading
 
 % ============================================================================
 %  6. Table of contents
