@@ -175,13 +175,13 @@
 \newcommand{\chapterHeading}[1]{\chapter{#1}}   % H1
 \newcommand{\sectionHeading}[1]{\section{#1}}   % H3
 \newcommand{\subHeading}[1]{%                   % bold + full-column rule
-  \par\vspace{3pt}\noindent
+  \par\vspace{1pt}\noindent
   \vbox{%
     \hbox to\linewidth{\lorafont\bfseries #1\hfil}%
     \kern2pt
     \hrule width\linewidth height0.4pt
   }\par\nobreak
-  \vspace{1pt}%
+  \vspace{.5pt}%
 }
 \let\subsection\subHeading                      % no separate 4th/5th level
 \let\subsubsection\subHeading

@@ -163,18 +163,6 @@ void precalc(){(*\hfill*) // O(N^2) Precalc nCr (prime/non prime)
 }
 \end{lstlisting}
 
-\sectionHeading{Josephus problem}
-\begin{lstlisting}[language=C++]
-int josephus(int n, int k){ (*\hfill*) 1-based survivor, O(n)
-    int res = 0;
-    for (int i = 1; i <= n; i++) res = (res + k) % i;
-    return res + 1;
-}
-\end{lstlisting}
-
-
-
-
 \sectionHeading{Gaussian elimination}
 \begin{lstlisting}[language=C++]
 int Gauss(vector<vector<int>> a, vector<int> &ans){
