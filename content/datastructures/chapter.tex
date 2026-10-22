@@ -72,39 +72,62 @@ struct LazySegTree {
 
 \sectionHeading{MO's algorithm}
 \begin{lstlisting}[language=C++]
-struct Query { int l, r, idx; };
-vector<int> mo(vector<Query> q, vector<int>& a, int n) {
-    int B = max(1, (int)sqrt(n));
-    sort(q.begin(), q.end(), [&](const Query& x, const Query& y) {
-        int bx = x.l / B, by = y.l / B;
-        if (bx != by) return bx < by;
-        return (bx & 1) ? x.r > y.r : x.r < y.r;   // odd-even trick
-    });
-    vector<int> ans(q.size());
-    int curL = 0, curR = -1;
-    long long cur = 0;
-    auto add = [&](int i) { cur += a[i]; };       // change per problem
-    auto rem = [&](int i) { cur -= a[i]; };
-    for (auto& qu : q) {
-        while (curL > qu.l) add(--curL);
-        while (curR < qu.r) add(++curR);
-        while (curL < qu.l) rem(curL++);
-        while (curR > qu.r) rem(curR--);
-        ans[qu.idx] = cur;
-    }
-    return ans;
+struct tup{
+    int block, r, l, i;
+};
+int n, q, distinct;
+vector<tup>queries;
+vector<int>cs, ans, freq;
+void add (int pos){
+    int x = cs[pos];
+    if (freq[x] == 0) ++distinct;
+    ++freq[x];
 }
+void remove (int pos){
+    int x = cs[pos];
+    --freq[x];
+    if (freq[x] == 0) --distinct;
+}
+void solve(){
+    cin >> n >> q;
+    queries.resize(q); cs.resize(n); ans.resize(q); freq.resize(n);
+    for (int i = 0; i < n; ++i) cin>>cs[i];
+ 
+    vector <int>coo = cs;
+    sort(coo.begin(), coo.end());
+    coo.erase(unique(coo.begin(), coo.end()), coo.end());
+
+    for(int i=0; i<n; i++)
+        cs[i] = lower_bound(coo.begin(), coo.end(), cs[i]) - coo.begin();
+ 
+    for(int i=0; i<q; i++){
+        int l, r; cin>>l>>r;
+        --l, --r;
+        int block = l/sqrt(n);
+        queries[i] = {block, (block & 1) ? -r : r, l, i};
+    }
+ 
+    sort(all(queries), [](tup &a, tup &b){
+        if(a.block != b.block) return a.block < b.block;
+        if(a.r != b.r) return a.r < b.r;
+        return a.l < b.l;
+    });
+
+    int L=0, R=-1;
+    for(int it=0; it<q; it++){
+        auto [block, r, l, i] = queries[it];
+        r = abs(r);
+        while(R < r) add(++R);
+        while(L > l) add(--L);
+        while(L < l) remove(L++);
+        while(R > r) remove(R--);
+ 
+        ans[i] = distinct;
+    }
+ 
+    for(int i=0; i<q; i++) cout<<ans[i]<<nl;
+}
+
 \end{lstlisting}
 
-\sectionHeading{Longest increasing subsequence}
-\begin{lstlisting}[language=C++]
-int lis(const vector<int>& a) {          // length, O(n log n)
-    vector<int> d;
-    for (int x : a) {
-        auto it = lower_bound(d.begin(), d.end(), x);
-        if (it == d.end()) d.push_back(x);
-        else *it = x;
-    }
-    return (int)d.size();
-}
-\end{lstlisting}
+

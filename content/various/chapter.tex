@@ -1,0 +1,69 @@
+\chapterHeading{Various}
+
+\sectionHeading{Longest Increasing Subsequence}
+\begin{lstlisting}[language=C++]
+int lis(const vector<int>& a) {(*\hfill*)// length, O(n log n)
+    vector<int> d;
+    for (int x : a) {
+        auto it = lower_bound(d.begin(), d.end(), x);
+        if (it == d.end()) d.push_back(x);
+        else *it = x;
+    }
+    return (int)d.size();
+}
+\end{lstlisting}
+\subHeading{LCS via LIS}
+\begin{lstlisting}[language=C++]
+// LCS -> LIS:
+// Store the positions of each value of A in B.
+// For each A[i], add its B positions to cs in REVERSE order
+//   (this handles duplicates).
+// LCS length = LIS(cs).
+// If each value occurs <= K times: |cs| <= N*K
+// TC: O(N*K log(N*K)); worst O(N^2 log N) if one value occurs n times.
+\end{lstlisting}
+
+\sectionHeading{Josephus problem}
+\begin{lstlisting}[language=C++]
+int josephus(int n, int k){ (*\hfill*) 1-based survivor, O(n)
+    int res=0;
+    for(int i=1; i<=n; i++) res=(res+k) % i;
+    return res+1;
+}
+\end{lstlisting}
+
+\sectionHeading{int128}
+\begin{lstlisting}[language=C++]
+__int128 read() {
+    __int128 x = 0, f = 1;
+    char ch = getchar();
+
+    while (ch < '0' || ch > '9') {
+        if (ch == '-') f = -1;
+        ch = getchar();
+    }
+
+    while (ch >= '0' && ch <= '9') {
+        x = x * 10 + (ch - '0');
+        ch = getchar();
+    }
+
+    return x * f;
+}
+
+void print(__int128 x) {
+    if (x < 0) {
+        putchar('-');
+        x = -x;
+    }
+    if (x > 9)
+        print(x / 10);
+    putchar(x % 10 + '0');
+}
+
+bool cmp(__int128 x, __int128 y) {
+    return x > y;
+}
+\end{lstlisting}
+
+

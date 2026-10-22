@@ -1,5 +1,20 @@
 \chapterHeading{Geometry}
 
+\subHeading{Angle Conversions}
+\noindent
+\begin{itemize}[leftmargin=*, nosep]
+    \item All functions accept and return angles in radians.
+    \item Use \texttt{sinl}, \texttt{cosl}, \texttt{tanl}, \texttt{asinl}, \texttt{acosl}, \texttt{atan2l} for \texttt{long double} precision.
+    \item Degree to Radian: $\text{rad} = \text{deg} \times \dfrac{\pi}{180}$
+\end{itemize}
+\begin{lstlisting}[language=C++]
+// Example: 
+cos(60)=0.5
+cout<<cosl(60*PI / 180.0L)<<nl; (*\qquad*) // prints 0.5
+acos(0.5)=60
+cout<<acosl(0.5)*180.0L/PI<<nl; (*\qquad*) // prints 60
+\end{lstlisting}
+
 \sectionHeading{Point}
 \begin{lstlisting}[language=C++]
 using ld = long double;
