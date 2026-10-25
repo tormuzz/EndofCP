@@ -184,28 +184,154 @@ struct AhoCorasick {
 };
 \end{lstlisting}
 
-\sectionHeading{Double rolling hash}
-\begin{lstlisting}[language=C++]
-struct DoubleHash {
-    static const int M1 = 1e9 + 7, M2 = 1e9 + 9;
-    static const int B1 = 911382323, B2 = 972663749;
-    vector<int> h1, h2, p1, p2;
+\sectionHeading{Rabinkarp Double Hash}
 
-    DoubleHash(const string& s) {
-        int n = s.size();
-        h1.assign(n + 1, 0); h2.assign(n + 1, 0);
-        p1.assign(n + 1, 1); p2.assign(n + 1, 1);
+\begin{lstlisting}[language=C++]
+//Array of obj
+vector<RabinKarpHash>ob; ob.reserve(n);
+for(int i=0; i<n; i++){
+    ob.push_back(RabinKarpHash(cs[i]));
+}
+\end{lstlisting}
+
+\subHeading{Rabinkarp templates}
+
+\begin{lstlisting}[language=C++]
+const int MOD1 = 1000000007;
+const int MOD2 = 1000000009;
+const int BASE1 = 911382323;
+const int BASE2 = 972663749;
+vector<int> power1(MAXN), power2(MAXN);
+
+// Precompute powers once
+void precomputePowers() {
+    power1[0] = power2[0] = 1;
+    for (int i = 1; i < MAXN; i++) {
+        power1[i] = (1LL * power1[i - 1] * BASE1) % MOD1;
+        power2[i] = (1LL * power2[i - 1] * BASE2) % MOD2;
+    }
+}
+
+// Rolling hash struct (uses precomputed powers)
+struct RabinKarpHash {
+    vector<int> hash1, hash2, Rash1, Rash2;
+    int n;
+
+    RabinKarpHash(const string &s) {
+        n = (int)s.size();
+        hash1.assign(n + 1, 0); hash2.assign(n + 1, 0);
+        Rash1.assign(n + 1, 0); Rash2.assign(n + 1, 0);
+
+        // forward hash
         for (int i = 0; i < n; i++) {
-            h1[i + 1] = ((long long)h1[i] * B1 + s[i]) % M1;
-            h2[i + 1] = ((long long)h2[i] * B2 + s[i]) % M2;
-            p1[i + 1] = (long long)p1[i] * B1 % M1;
-            p2[i + 1] = (long long)p2[i] * B2 % M2;
+            hash1[i + 1] = ( (1LL * hash1[i] * BASE1) + s[i] ) % MOD1;
+            hash2[i + 1] = ( (1LL * hash2[i] * BASE2) + s[i] ) % MOD2;
+        }
+
+        // reverse hash
+        for (int i = 0; i < n; i++) {
+            Rash1[i + 1] = ( (1LL * Rash1[i] * BASE1) + s[n - i - 1] ) % MOD1;
+            Rash2[i + 1] = ( (1LL * Rash2[i] * BASE2) + s[n - i - 1] ) % MOD2;
         }
     }
-    pair<int, int> get(int l, int r) {        // hash of s[l..r], inclusive
-        int x1 = (h1[r + 1] - (long long)h1[l] * p1[r - l + 1] % M1 + M1) % M1;
-        int x2 = (h2[r + 1] - (long long)h2[l] * p2[r - l + 1] % M2 + M2) % M2;
+
+    inline pair<int,int> getSubHash(int l, int r) const {
+        int x1 = (hash1[r + 1] - 1LL * hash1[l] * power1[r - l + 1]) % MOD1;
+        int x2 = (hash2[r + 1] - 1LL * hash2[l] * power2[r - l + 1]) % MOD2;
+        if (x1 < 0) x1 += MOD1; if (x2 < 0) x2 += MOD2;
         return {x1, x2};
     }
+
+    inline pair<int,int> getRevHash(int l, int r) const {
+        int L = n - 1 - r; int R = n - 1 - l;
+        int x1 = (Rash1[R + 1] - 1LL * Rash1[L] * power1[R - L + 1]) % MOD1;
+        int x2 = (Rash2[R + 1] - 1LL * Rash2[L] * power2[R - L + 1]) % MOD2;
+        if (x1 < 0) x1 += MOD1; if (x2 < 0) x2 += MOD2;
+        return {x1, x2};
+    }
+
+    inline pair<int,int> contribution(int i,int R,char c) const {
+        int val = c - 'a' + 1;
+        int powerPos = R - i;
+        int x1 = (1LL * val * power1[powerPos]) % MOD1;
+        int x2 = (1LL * val * power2[powerPos]) % MOD2;
+        return {(int)x1, (int)x2};
+    }
+
+    //does not affect the main string // O(1)
+    inline pair<int,int> CNGHash(int i, char oldc, char newc) const {
+        auto ex = contribution(i,n-1,oldc);
+        auto cur = contribution(i,n-1,newc);
+        pair<int,int> p = {hash1[n], hash2[n]};
+        p.first = (p.first - ex.first + cur.first + MOD1) % MOD1;
+        p.second = (p.second - ex.second + cur.second + MOD2) % MOD2;
+        return p;
+    }
 };
+\end{lstlisting}
+
+\subHeading{Pattern Search}
+
+\begin{lstlisting}[language=C++]
+vector<int> occurrences;
+
+void searchPattern(const string &text, const string &pattern) {
+    occurrences.clear();
+    int n = sz(text), m = sz(pattern);
+    if (m > n) return;
+
+    RabinKarpHash txtHash(text);    // in main function
+    RabinKarpHash patHash(pattern);
+    pair<int,int> patH = patHash.getSubHash(0, m - 1);
+
+    for (int i = 0; i + m - 1 < n; i++) {
+        if (txtHash.getSubHash(i, i + m - 1) == patH)
+            occurrences.push_back(i);
+    }
+    // store 0-based index
+}
+\end{lstlisting}
+
+\subHeading{Combine Hash values}
+
+\begin{lstlisting}[language=C++]
+struct PairHash {
+    size_t operator()(const pair<int,int>& p) const noexcept {
+        return (((uint64_t)p.first << 32) | p.second);
+    }
+};
+\end{lstlisting}
+
+\noindent neg value thkle: \verb|((int)x << 32) | (y & 0xffffffffLL);|
+
+\subHeading{Distinct Substring using hash val (works for 1000\textasciitilde2000)}
+
+For long string use suffix array automaton
+
+\begin{lstlisting}[language=C++]
+unordered_set<pair<int,int>, PairHash> distinctSubStrings;
+//remember to clear the set
+\end{lstlisting}
+
+\subHeading{Hash after removing character from the middle}
+
+\begin{lstlisting}[language=C++]
+pair<int,int> hashAfterRemove(const RabinKarpHash &H, int k, int len) {
+    int n = H.n;
+    if (len <= 0) return n ? H.getSubHash(0, n-1) : pair<int,int>{0,0};
+    if (k < 0 || k >= n || k + len > n) return {0,0};
+    if (len >= n) return {0,0};
+
+    int left_len  = k;
+    int right_len = n - (k + len);
+
+    pair<int,int> HL = left_len ?
+        H.getSubHash(0, k-1) : pair<int,int>{0,0};
+    pair<int,int> HR = right_len ?
+        H.getSubHash(k+len, n-1) : pair<int,int>{0,0};
+
+    int r1 = ( ( (HL.first  * power1[right_len]) % MOD1 ) + HR.first ) % MOD1;
+    int r2 = ( ( (HL.second * power2[right_len]) % MOD2 ) + HR.second) % MOD2;
+    return {r1, r2};
+}
 \end{lstlisting}
