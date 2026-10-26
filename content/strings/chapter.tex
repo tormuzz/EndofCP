@@ -1,85 +1,664 @@
+\begingroup
+\lstset{
+    commentstyle=\bfseries\ttfamily\upshape,
+    emph={
+        precomputePowers,RabinKarpHash,PairHash,operator,Node,getSubHash,getRevHash,contribution,CNGHash,
+        searchPattern,hashAfterRemove,SegTreeHash,merge,build,update,query,getHash,
+        isPalindrome,LCP,Trie,charToIndex,insert,exists,countPrefix,remove,dfsCollect,
+        autocomplete,longestCommonPrefix,dfs,build_lps,kmp,z_function,manacher,booth,
+        minimal_rotation,AC,new_node,id,add_pattern,advance,propagate,SuffixAutomaton,
+        extend,build_tree,cnt,distinct_substrings,longest_repeating_string,count_paths,
+        kth_substring,substring_distribution,main
+    },
+    emphstyle=\bfseries
+}
+
 \chapterHeading{Strings}
 
-\sectionHeading{Trie}
-\begin{lstlisting}[language=C++]
-struct Trie {
-    static const int ALPHA = 26;
-    struct Node {
-        int nxt[ALPHA], pass = 0, end = 0;
-        Node() { fill(nxt, nxt + ALPHA, -1); }
-    };
-    vector<Node> t;
-    Trie() { t.emplace_back(); }
+\sectionHeading{Double Hash}
 
-    void insert(const string& s) {
-        int u = 0; t[u].pass++;
-        for (char c : s) {
-            int i = c - 'a';
-            if (t[u].nxt[i] == -1) { t[u].nxt[i] = (int)t.size(); t.emplace_back(); }
-            u = t[u].nxt[i]; t[u].pass++;
-        }
-        t[u].end++;
+\begin{lstlisting}[language=C++]
+//Array of obj
+vector<RabinKarpHash>ob; ob.reserve(n);
+for(int i=0; i<n; i++){
+    ob.push_back(RabinKarpHash(cs[i]));
+}
+\end{lstlisting}
+
+\subHeading{Rabinkarp templates}
+
+\begin{lstlisting}[language=C++]
+const int MOD1 = 1000000007;
+const int MOD2 = 1000000009;
+const int BASE1 = 911382323;
+const int BASE2 = 972663749;
+vector<int> power1(MAXN), power2(MAXN);
+
+// Precompute powers once
+void precomputePowers() {
+    power1[0] = power2[0] = 1;
+    for (int i = 1; i < MAXN; i++) {
+        power1[i] = (1LL * power1[i - 1] * BASE1) % MOD1;
+        power2[i] = (1LL * power2[i - 1] * BASE2) % MOD2;
     }
-    bool contains(const string& s) {
-        int u = 0;
-        for (char c : s) {
-            int i = c - 'a';
-            if (t[u].nxt[i] == -1) return false;
-            u = t[u].nxt[i];
+}
+
+// Rolling hash struct (uses precomputed powers)
+struct RabinKarpHash {
+    vector<int> hash1, hash2, Rash1, Rash2;
+    int n;
+
+    RabinKarpHash(const string &s) {
+        n = (int)s.size();
+        hash1.assign(n + 1, 0); hash2.assign(n + 1, 0);
+        Rash1.assign(n + 1, 0); Rash2.assign(n + 1, 0);
+
+        // forward hash
+        for (int i = 0; i < n; i++) {
+            hash1[i + 1] = ( (1LL * hash1[i] * BASE1) + s[i] ) % MOD1;
+            hash2[i + 1] = ( (1LL * hash2[i] * BASE2) + s[i] ) % MOD2;
         }
-        return t[u].end > 0;
+
+        // reverse hash
+        for (int i = 0; i < n; i++) {
+            Rash1[i + 1] = ( (1LL * Rash1[i] * BASE1) + s[n - i - 1] ) % MOD1;
+            Rash2[i + 1] = ( (1LL * Rash2[i] * BASE2) + s[n - i - 1] ) % MOD2;
+        }
     }
-    int countPrefix(const string& s) {     // strings having s as prefix
-        int u = 0;
-        for (char c : s) {
-            int i = c - 'a';
-            if (t[u].nxt[i] == -1) return 0;
-            u = t[u].nxt[i];
-        }
-        return t[u].pass;
+
+    inline pair<int,int> getSubHash(int l, int r) const {
+        int x1 = (hash1[r + 1] - 1LL * hash1[l] * power1[r - l + 1]) % MOD1;
+        int x2 = (hash2[r + 1] - 1LL * hash2[l] * power2[r - l + 1]) % MOD2;
+        if (x1 < 0) x1 += MOD1; if (x2 < 0) x2 += MOD2;
+        return {x1, x2};
+    }
+
+    inline pair<int,int> getRevHash(int l, int r) const {
+        int L = n - 1 - r; int R = n - 1 - l;
+        int x1 = (Rash1[R + 1] - 1LL * Rash1[L] * power1[R - L + 1]) % MOD1;
+        int x2 = (Rash2[R + 1] - 1LL * Rash2[L] * power2[R - L + 1]) % MOD2;
+        if (x1 < 0) x1 += MOD1; if (x2 < 0) x2 += MOD2;
+        return {x1, x2};
+    }
+
+    inline pair<int,int> contribution(int i,int R,char c) const {
+        int val = c - 'a' + 1;
+        int powerPos = R - i;
+        int x1 = (1LL * val * power1[powerPos]) % MOD1;
+        int x2 = (1LL * val * power2[powerPos]) % MOD2;
+        return {(int)x1, (int)x2};
+    }
+
+    //does not affect the main string // O(1)
+    inline pair<int,int> CNGHash(int i, char oldc, char newc) const {
+        auto ex = contribution(i,n-1,oldc);
+        auto cur = contribution(i,n-1,newc);
+        pair<int,int> p = {hash1[n], hash2[n]};
+        p.first = (p.first - ex.first + cur.first + MOD1) % MOD1;
+        p.second = (p.second - ex.second + cur.second + MOD2) % MOD2;
+        return p;
     }
 };
 \end{lstlisting}
 
-\sectionHeading{KMP}
-\begin{lstlisting}[language=C++]
-vector<int> prefixFunction(const string& s) {
-    int n = s.size();
-    vector<int> pi(n);
-    for (int i = 1; i < n; i++) {
-        int j = pi[i - 1];
-        while (j && s[i] != s[j]) j = pi[j - 1];
-        if (s[i] == s[j]) j++;
-        pi[i] = j;
-    }
-    return pi;
-}
+\subHeading{Pattern Search}
 
-vector<int> kmp(const string& s, const string& p) {   // match positions
-    vector<int> pi = prefixFunction(p), res;
-    int j = 0;
-    for (int i = 0; i < (int)s.size(); i++) {
-        while (j && s[i] != p[j]) j = pi[j - 1];
-        if (s[i] == p[j]) j++;
-        if (j == (int)p.size()) { res.push_back(i - j + 1); j = pi[j - 1]; }
+\begin{lstlisting}[language=C++]
+vector<int> occurrences;
+
+void searchPattern(const string &text, const string &pattern) {
+    occurrences.clear();
+    int n = sz(text), m = sz(pattern);
+    if (m > n) return;
+
+    RabinKarpHash txtHash(text);    // in main function
+    RabinKarpHash patHash(pattern);
+    pair<int,int> patH = patHash.getSubHash(0, m - 1);
+
+    for (int i = 0; i + m - 1 < n; i++) {
+        if (txtHash.getSubHash(i, i + m - 1) == patH)
+            occurrences.push_back(i);
     }
-    return res;
+    // store 0-based index
 }
 \end{lstlisting}
 
-\sectionHeading{Z-function}
+\subHeading{Combine Hash values}
+
 \begin{lstlisting}[language=C++]
-vector<int> zFunction(const string& s) {
-    int n = s.size();
-    vector<int> z(n);
-    for (int i = 1, l = 0, r = 0; i < n; i++) {
-        if (i <= r) z[i] = min(r - i + 1, z[i - l]);
-        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
-        if (i + z[i] - 1 > r) l = i, r = i + z[i] - 1;
+struct PairHash {
+    size_t operator()(const pair<int,int>& p) const noexcept {
+        return (((uint64_t)p.first << 32) | p.second);
     }
-    return z;
+};
+\end{lstlisting}
+
+\noindent neg value thkle:
+
+\begin{lstlisting}[language=C++]
+((int)x << 32) | (y & 0xffffffffLL);
+\end{lstlisting}
+
+\subHeading{Distinct Substring using hash val (works for 1000\textasciitilde2000)}
+
+For long string use suffix array automaton
+
+\begin{lstlisting}[language=C++]
+unordered_set<pair<int,int>, PairHash> distinctSubStrings;
+//remember to clear the set
+\end{lstlisting}
+
+\subHeading{Hash after removing character from the middle}
+
+\begin{lstlisting}[language=C++]
+pair<int,int> hashAfterRemove(const RabinKarpHash &H, int k, int len) {
+    int n = H.n;
+    if (len <= 0) return n ? H.getSubHash(0, n-1) : pair<int,int>{0,0};
+    if (k < 0 || k >= n || k + len > n) return {0,0};
+    if (len >= n) return {0,0};
+
+    int left_len  = k;
+    int right_len = n - (k + len);
+
+    pair<int,int> HL = left_len ?
+        H.getSubHash(0, k-1) : pair<int,int>{0,0};
+    pair<int,int> HR = right_len ?
+        H.getSubHash(k+len, n-1) : pair<int,int>{0,0};
+
+    int r1 = ( ( (HL.first  * power1[right_len]) % MOD1 ) + HR.first ) % MOD1;
+    int r2 = ( ( (HL.second * power2[right_len]) % MOD2 ) + HR.second) % MOD2;
+    return {r1, r2};
 }
-// occurrences of pattern p in text t: z_function(p + '#' + t)
+\end{lstlisting}
+
+\sectionHeading{Segment Tree + Double Hash}
+
+\begin{lstlisting}[language=C++]
+const int MOD1 = 1000000007;
+const int MOD2 = 1000000009;
+const int BASE1 = 911382323;
+const int BASE2 = 972663749;
+const int MAXN = 200005;
+vector<int> power1(MAXN), power2(MAXN);
+
+void precomputePowers() {                 // O(n)
+    power1[0] = power2[0] = 1;
+    for (int i = 1; i < MAXN; i++) {
+        power1[i] = (1LL * power1[i - 1] * BASE1) % MOD1;
+        power2[i] = (1LL * power2[i - 1] * BASE2) % MOD2;
+    }
+}
+
+struct SegTreeHash {
+    struct Node {
+        int h1, h2;
+        int len;
+    };
+    int n;
+    vector<Node> tree;
+
+    // O(n)
+    SegTreeHash(const string &s) {
+        n = s.size();
+        tree.resize(4 * n);
+        build(1, 0, n - 1, s);
+    }
+
+    // O(1)
+    Node merge(const Node &L, const Node &R) {
+        if (L.len == 0) return R;
+        if (R.len == 0) return L;
+        Node res; res.len = L.len + R.len;
+        res.h1 = ( (1LL * L.h1 * power1[R.len]) % MOD1 + R.h1 ) % MOD1;
+        res.h2 = ( (1LL * L.h2 * power2[R.len]) % MOD2 + R.h2 ) % MOD2;
+        return res;
+    }
+
+    // O(n)
+    void build(int node, int l, int r, const string &s) {
+        if (l == r) {
+            tree[node] = { (int)s[l], (int)s[l], 1 };
+            return;
+        }
+        int mid = (l + r) >> 1;
+        build(node << 1, l, mid, s);
+        build(node << 1 | 1, mid + 1, r, s);
+        tree[node]=merge(tree[node<<1], tree[node<<1 | 1]);
+    }
+
+    // O(log n)
+    void update(int node, int l, int r, int idx, char c) {
+        if (l == r) {
+            tree[node] = { (int)c, (int)c, 1 };
+            return;
+        }
+        int mid = (l + r) >> 1;
+        if (idx <= mid)  update(node << 1, l, mid, idx, c);
+        else update(node << 1 | 1, mid + 1, r, idx, c);
+        tree[node]=merge(tree[node<<1], tree[node<<1 | 1]);
+    }
+
+    // O(log n)
+    void update(int idx, char c) {
+        update(1, 0, n - 1, idx, c);
+    }
+
+    // You must update both trees manually.
+    // seg.update(i, c); revSeg.update(n - 1 - i, c);
+
+    // O(log n)
+    Node query(int node, int l, int r, int ql, int qr) {
+        if (ql > r || qr < l) return {0, 0, 0};
+        if (ql <= l && r <= qr) return tree[node];
+        int mid = (l + r) >> 1;
+        Node left = query(node << 1, l, mid, ql, qr);
+        Node right = query(node << 1 | 1,mid + 1,r,ql, qr);
+        return merge(left, right);
+    }
+
+    // O(log n)
+    pair<int,int> getHash(int l, int r) {
+        Node res = query(1, 0, n - 1, l, r);
+        return {res.h1, res.h2};
+    }
+
+    // O(log n)
+    // requires another tree built on reversed string //
+    bool isPalindrome(int l, int r, SegTreeHash &revTree) {
+        int rl = n - 1 - r;
+        int rr = n - 1 - l;
+        return getHash(l, r) == revTree.getHash(rl, rr);
+    }
+
+    // O(log² n)
+    int LCP(int i, int j) {
+        int low = 0;
+        int high = n - max(i, j);
+        int ans = 0;
+
+        while (low <= high) {
+            int mid = (low + high) >> 1;
+            if (mid == 0) {
+                low = 1;
+                continue;
+            }
+
+            if (getHash(i, i + mid - 1) ==
+                getHash(j, j + mid - 1)) {
+                ans = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        return ans;
+    }
+};
+\end{lstlisting}
+
+\subHeading{Worst Case Complexity}
+
+\begin{itemize}
+    \item Constructor: O(n)
+    \item build(): O(n)
+    \item merge(): O(1)
+    \item point update(): O(log n)
+    \item range query(): O(log n)
+    \item getHash(): O(log n)
+    \item palindrome check: O(log n)
+    \item longest common prefix (LCP): O(log² n)
+\end{itemize}
+
+Total for n + q operations: O((n + q) log n)
+
+Space: O(n)
+
+\begin{lstlisting}[language=C++]
+SegTreeHash seg(s);
+\end{lstlisting}
+
+\subHeading{Common CP Uses}
+
+\begin{itemize}
+    \item Dynamic substring equality
+    \item Dynamic palindrome queries
+    \item Longest Common Prefix (binary search + hash)
+    \item Compare substrings lexicographically
+    \item Maintain dynamic string with point updates
+\end{itemize}
+
+\sectionHeading{Trie}
+
+\begin{lstlisting}[language=C++]
+vector <int> res; int mx = LLONG_MIN;
+unordered_map <string,int> mp; // shb clear koris
+
+struct Trie {
+    static const int ALPHABET = 26;
+    static const int MAX_NODES = 1000000;
+
+    struct Node {
+        int children[ALPHABET];
+        int passCount = 0;
+        int bestFreq = 0;
+        string bestWord = "";
+        int endCount = 0;
+        int depth = 0;
+
+        Node()
+        { memset(children, -1, sizeof(children)); }
+    };
+
+    vector<Node> nodes;
+    Trie() { nodes.push_back(Node()); }
+
+    inline int charToIndex(char c) { return c - 'a'; }
+
+    // Insert a string into Trie// Time Complexity: O(L)
+    void insert(const string &s,int freq) {
+        int cur = 0;
+        nodes[cur].passCount += freq;
+        for (char c : s) {
+            int i = charToIndex(c);
+            if (nodes[cur].children[i] == -1) {
+                nodes[cur].children[i] = sz(nodes);
+                nodes.push_back(Node());
+            }
+            nodes[nodes[cur].children[i]].depth = nodes[cur].depth+1;
+            cur = nodes[cur].children[i];
+            nodes[cur].passCount += freq;
+
+            if (freq > nodes[cur].bestFreq ||
+                (freq == nodes[cur].bestFreq && s < nodes[cur].bestWord)) {
+                nodes[cur].bestFreq = freq;
+                nodes[cur].bestWord = s;
+            }
+        }
+        nodes[cur].endCount += freq;
+    }
+
+    // most occurring word with prefix
+    // Time Complexity: O(L)
+    pair<int, string> query(const string &prefix) {
+        int cur = 0;
+        for (char c : prefix) {
+            int i = charToIndex(c);
+            if (nodes[cur].children[i] == -1)
+                return {0, "-1"};
+            cur = nodes[cur].children[i];
+        }
+        return {nodes[cur].bestFreq, nodes[cur].bestWord};
+    }
+
+    // Check if string exists exactly
+    // Time Complexity: O(L)
+    bool exists(const string &s) {
+        int cur = 0;
+        for (char c : s) {
+            int i = charToIndex(c);
+            if (nodes[cur].children[i] == -1) return false;
+            cur = nodes[cur].children[i];
+        }
+        return nodes[cur].endCount > 0;
+    }
+
+    // Count strings containing given prefix
+    // Time Complexity: O(L)
+    int countPrefix(const string &prefix) {
+        int cur = 0;
+        for (char c : prefix) {
+            int i = charToIndex(c);
+            if(nodes[cur].children[i]== -1)return 0;
+            cur = nodes[cur].children[i];
+        }
+        return nodes[cur].passCount;
+    }
+
+    // Remove string from Trie (if exists)
+    // Time Complexity: O(L)
+    void remove(const string &s) {
+        int cur = 0;
+        vector<int> path;
+        for (char c : s) {
+            int i = charToIndex(c);
+            if (nodes[cur].children[i] == -1) return;
+            path.push_back(cur);
+            cur = nodes[cur].children[i];
+        }
+        if (nodes[cur].endCount == 0) return; // string not present
+        nodes[cur].endCount--;
+
+        for (int i = s.size() - 1; i >= 0; i--) {
+            int node = path[i];
+            int ci = charToIndex(s[i]);
+            if (--nodes[nodes[node].children[ci]].passCount == 0)
+                nodes[node].children[ci] = -1;
+            else break;
+        }
+    }
+};
+\end{lstlisting}
+
+If any specific task to do do it creating a method(function) of trie to use nodes vector
+
+\begin{lstlisting}[language=C++]
+// Collect all words with prefix (DFS)
+// Time Complexity: O(L + nodes in subtree)
+void dfsCollect(int node, string curWord) {
+    if (nodes[node].endCount > 0) res.push_back(curWord);
+    for (int i = 0; i < ALPHABET; i++) {
+        if (nodes[node].children[i] != -1)
+            dfsCollect(nodes[node].children[i], curWord + char('a' + i));
+    }
+}
+
+// strings with same prefix
+// O(L + number of nodes in subtree)
+void autocomplete(const string &prefix) {
+    res.clear(); mx = LLONG_MIN;
+    int cur = 0;
+    for (char c : prefix) {
+        int i = charToIndex(c);
+        if (nodes[cur].children[i] == -1) return;
+        cur = nodes[cur].children[i];
+    }
+
+    dfsCollect(cur, prefix);
+    return;
+}
+}
+
+// Find Longest Common Prefix
+// Time Complexity: O(LCP length)
+string longestCommonPrefix(int totalStrings) {
+    string prefix;
+    int cur = 0;
+    while (true) {
+        int nextNode = -1;
+        int childCount = 0;
+        for (int i = 0; i < ALPHABET; i++) {
+            if (nodes[cur].children[i] != -1) {
+                childCount++;
+                if (nodes[nodes[cur].children[i]].passCount == totalStrings)
+                    nextNode = nodes[cur].children[i];
+            }
+        }
+        if (childCount != 1 || nextNode == -1) break;
+        // append the single child character
+        for (int i = 0; i < ALPHABET; i++) {
+            if (nodes[cur].children[i] == nextNode) {
+                prefix.push_back('a' + i);
+                break;
+            }
+        }
+        cur = nextNode;
+    }
+    return prefix;
+}
+
+// dfs traverse
+void dfs(int cur, int &ans)
+{
+    if(nodes[cur].passCount==1)
+    {
+        ans+=nodes[cur].depth;
+        return;
+    }
+
+    for (int i = 0; i < ALPHABET; i++)
+    {
+        int child = nodes[cur].children[i];
+        if(child==-1) continue;
+        dfs(child, ans);
+    }
+}
+\end{lstlisting}
+
+\subHeading{String}
+
+\begin{enumerate}
+    \item Prefix Hash:
+    \begin{lstlisting}
+H[i] = H[i-1] * BASE + s[i]
+    \end{lstlisting}
+    Allows O(1) substring hash: hash(l,r).
+
+    \item Reverse Hash: Same logic but on reversed string. O(1) palindrome check.
+
+    \item Powers:
+    \begin{lstlisting}
+power[k] = BASE^k
+    \end{lstlisting}
+    Normalizes hash(l,r) so every substring starts at power\textasciicircum0.
+
+    \item Delete substring [k ... k+len-1]:
+    \begin{lstlisting}
+NewHash = hash(0,k-1) * BASE^(right_length)
+          + hash(k+len, n-1).
+    \end{lstlisting}
+
+    \item Pattern Search: Compare substring hash with pattern hash → O(n).
+\end{enumerate}
+
+(Everything works in O(1) per query, O(n) precompute.)
+
+\subHeading{Trie}
+
+\begin{enumerate}
+    \item Structure: Each node has children[26], passCount, endCount, depth, and optionally bestWord/bestFreq for prefix queries.
+    \item Insert(s): Walk/create nodes → passCount++ on each → endCount++ at end. (Use bestWord/bestFreq to track most frequent prefix word.) Time: O(|s|)
+    \item Query / Exists: Walk down letters. exists = endCount > 0. countPrefix = passCount. prefix-best = stored bestWord/bestFreq. Time: O(|s|)
+    \item Remove(s): Walk path; decrement endCount + passCount. If a child’s passCount becomes 0 → delete that edge. Time: O(|s|)
+    \item DFS / Autocomplete: After reaching the prefix node → DFS children and collect words. Time: O(|prefix| + subtree\_size)
+    \item Longest Common Prefix: Move while exactly one child AND child.passCount == totalStrings. Time: O(LCP)
+\end{enumerate}
+
+(Trie = prefix tree: fast prefix queries, counting, autocomplete; all O(length).)
+
+\sectionHeading{KMP}
+
+\begin{lstlisting}[language=C++]
+const int N = 3e5 + 9;
+
+// returns the longest proper prefix array of pattern p
+// where lps[i]=longest proper prefix which is also suffix of p[0...i]
+vector<int> build_lps(string p) {
+  int sz = p.size();
+  vector<int> lps;
+  lps.assign(sz + 1, 0);
+  int j = 0;
+  lps[0] = 0;
+  for(int i = 1; i < sz; i++) {
+    while(j >= 0 && p[i] != p[j]) {
+      if(j >= 1) j = lps[j - 1];
+      else j = -1;
+    }
+    j++;
+    lps[i] = j;
+  }
+  return lps;
+}
+
+vector<int>ans;
+
+// returns matches in vector ans in 0-indexed
+void kmp(vector<int> lps, string s, string p) {
+  int psz = p.size(), sz = s.size();
+  int j = 0;
+  for(int i = 0; i < sz; i++) {
+    while(j >= 0 && p[j] != s[i])
+      if(j >= 1) j = lps[j - 1];
+      else j = -1;
+    j++;
+    if(j == psz) {
+      j = lps[j - 1];
+      // pattern found in string s at position i-psz+1
+      ans.push_back(i - psz + 1);
+    }
+    // after each loop we have j=longest common suffix of s[0..i] which is also prefix of p
+  }
+}
+
+// 1. Read number of test cases t
+// 2. For each test case: read string s (text) and p (pattern)
+// 3. Build LPS array: vector<int> lps = build_lps(p);
+// 4. Call KMP: kmp(lps, s, p) → fills 'ans' with 0-based match positions
+// 5. Output results (ans.size() and positions) or "Not Found"
+// 6. Clear ans after each test case
+
+// Notes:
+// KMP: find all occurrences of pattern p in string s
+// LPS[i] = longest proper prefix of p[0..i] which is also suffix
+// Time: O(n+m), n=|s|, m=|p|; Space: O(m + #matches)
+// Ideal: large strings, overlapping patterns, multiple queries
+// Use when naive O(n*m) is too slow
+\end{lstlisting}
+
+\sectionHeading{Z-Algorithm}
+
+\begin{lstlisting}[language=C++,commentstyle=\ttfamily\upshape]
+(*\strong{\detokenize{// For a string s, Z[i] is the length of the longest substring starting at i that is also a prefix of s.}}*)
+vector<int> z_function(string &s) {
+  int n = (int) s.length();
+  vector<int> z(n);
+  for (int i = 1, l = 0, r = 0; i < n; ++i) {
+    if (i <= r)
+      z[i] = min (r - i + 1, z[i - l]);
+    while (i + z[i] < n && s[z[i]] == s[i + z[i]])
+      ++z[i];
+    if (i + z[i] - 1 > r)
+      l = i, r = i + z[i] - 1;
+  }
+  return z;
+}
+
+int32_t main() {
+  string text, pattern;
+    cin >> text >> pattern;
+    string s = pattern + "$" + text;
+    vector<int> z = z_function(s);
+    int p = pattern.size();
+    for (int i = 0; i < z.size(); i++) {
+        if (z[i] == p) {
+            cout << "Pat at idx:" << i-p-1 <<'\n';
+        }
+    }
+  return 0;
+}
+
+// 1. Read string s
+// 2. Call z_function(s) → returns vector<int> z
+// 3. z[i] = length of longest prefix of s starting at i
+// 4. Use z array to find pattern occurrences, repetitions, or borders
+// 5. Output z array or process as needed
+
+// Notes:
+// Z-function: Z[i] = length of longest substring starting at i matching prefix of s
+// Z[0] = 0, as whole string is prefix of itself
+// Time: O(n), Space: O(n), n = |s|
+// Ideal: pattern matching, substring queries, repetitions, borders
+// Use like: vector<int> z = z_function(s); positions/patterns can be derived from z[]
 \end{lstlisting}
 
 \sectionHeading{Manacher}
@@ -104,108 +683,457 @@ void manacher(const string& s, vector<int>& odd, vector<int>& even) {
 }
 \end{lstlisting}
 
-\sectionHeading{Booth (minimal rotation)}
+\sectionHeading{Booth's Algorithm (LMSR)}
+
 \begin{lstlisting}[language=C++]
-int minRotation(const string& s) {          // O(n), returns start index
-    int n = s.size();
+// Booth's Algo to find minimal rotation start index
+int booth(const string &s) {   //O(n)
     string t = s + s;
+    int n = s.size();
     vector<int> f(2 * n, -1);
     int k = 0;
     for (int j = 1; j < 2 * n; j++) {
         int i = f[j - k - 1];
         while (i != -1 && t[j] != t[k + i + 1]) {
-            if (t[j] < t[k + i + 1]) k = j - i - 1;
-            i = f[i];
+            if (t[j] < t[k + i + 1]) {
+                k = j - i - 1;
+            } i = f[i];
         }
+
         if (t[j] != t[k + i + 1]) {
             if (t[j] < t[k]) k = j;
             f[j - k] = -1;
         } else f[j - k] = i + 1;
-    }
-    return k;
+    } return k;
 }
 \end{lstlisting}
 
-\sectionHeading{Duval (Lyndon factorization)}
+\sectionHeading{Duval's Lyndon factorization algorithm (LMSR)}
+
 \begin{lstlisting}[language=C++]
-vector<string> duval(const string& s) {     // O(n)
-    int n = s.size(), i = 0;
-    vector<string> res;
-    while (i < n) {
+// O(n), O(1) space
+string minimal_rotation(string s) {
+    s += s;
+    int n = s.size();
+    int i = 0, ans = 0;
+    while(i < n/2) {
+        ans = i;
         int j = i + 1, k = i;
-        while (j < n && s[k] <= s[j]) {
-            if (s[k] < s[j]) k = i; else k++;
+        while(j<n && s[k]<=s[j]) {
+            if(s[k]<s[j]) k=i;
+            else k++;
             j++;
         }
-        while (i <= k) { res.push_back(s.substr(i, j - k)); i += j - k; }
+        while(i <= k) i += j - k;
     }
-    return res;
+    return s.substr(ans,n/2);
 }
 \end{lstlisting}
 
-\sectionHeading{Aho--Corasick}
-\begin{lstlisting}[language=C++]
-struct AhoCorasick {
-    static const int ALPHA = 26;
-    vector<array<int, ALPHA>> nxt;
-    vector<int> link, outLink;
-    vector<vector<int>> out;
+\sectionHeading{Manacher’s Algorithm}
 
-    AhoCorasick() { addNode(); }
-    int addNode() {
-        nxt.push_back({}); nxt.back().fill(0);
-        link.push_back(0); outLink.push_back(0); out.push_back({});
-        return (int)nxt.size() - 1;
+\begin{lstlisting}[language=C++]
+// oddPal[i]=#odd length pal centered at i
+// evenPal[i]=#even len pal centered between i-1,i
+// time O(n)  // n = 5 * 10^6 → usually fine
+vector<int>oddPal,evenPal;
+
+void manacher(const string&s){
+    int n=s.size();
+    oddPal.assign(n,0);
+    evenPal.assign(n,0);
+
+    int l=0,r=-1;
+    for(int i=0;i<n;i++){
+        int k=i>r?1:min(oddPal[l+r-i],r-i+1);
+        while(i-k>=0&&i+k<n&&s[i-k]==s[i+k])k++;
+        oddPal[i]=k;
+        if(i+k-1>r)l=i-k+1,r=i+k-1;
     }
-    void insert(const string& s, int id) {
-        int u = 0;
-        for (char c : s) {
-            int x = c - 'a';
-            if (!nxt[u][x]) nxt[u][x] = addNode();
-            u = nxt[u][x];
+
+    l=0,r=-1;
+    for(int i=0;i<n;i++){
+        int k=i>r?0:min(evenPal[l+r-i+1],r-i+1);
+        while(i-k-1>=0&&i+k<n&&s[i-k-1]==s[i+k])k++;
+        evenPal[i]=k;
+        if(i+k-1>r)l=i-k,r=i+k-1;
+    }
+}
+
+// For odd palindrome at i:
+// radius = oddPal[i]
+// length = 2*radius - 1
+// start = i - radius + 1
+// For even palindrome at i:
+// radius = evenPal[i]
+// length = 2*radius
+// start = i - radius
+
+// end = start + length - 1;
+\end{lstlisting}
+
+
+\sectionHeading{Aho Corasic}
+
+\begin{lstlisting}[language=C++]
+// Aho-Corasick Automaton
+// Multi-pattern matching in O(text + total_pattern_length)
+struct AC {
+  int nodes = 0, patterns = 0;
+  const int ALPHA = 26;
+  vector<vector<int>> nxt;   // trie transitions
+  vector<int> link;          // suffix links
+  vector<int> out_link;
+// nearest suffix node that ends a pattern
+  vector<vector<int>> out; // pat ids ending at node
+
+// ------- added for fast counting problems -------
+vector<int> vis; // number of visits of node
+vector<int> order; // BFS order of nodes
+vector<int> end_node; // node where pattern ends
+
+  AC(){ new_node(); }  // create root
+
+  // create new trie node // return: node index
+  // complexity: O(ALPHA)
+  int new_node(){
+    nxt.push_back(vector<int>(ALPHA,0));
+    link.push_back(0);
+    out_link.push_back(0);
+    out.push_back({});
+    vis.push_back(0);       //added
+    return nodes++;
+  }
+
+  inline int id(char c){ return c-'a'; }
+
+  // insert pattern // return: pattern id
+  // complexity: O(|pattern|)
+  int add_pattern(const string &s){
+    int u=0;
+    for(char c:s){
+      int x=id(c);
+      if(!nxt[u][x]) nxt[u][x]=new_node();
+      u=nxt[u][x];
+    }
+    out[u].push_back(patterns);
+    end_node.push_back(u);  // added
+    return patterns++;
+  }
+
+  // build suffix links(frnd link) and automaton
+  // complexity: O(nodes * ALPHA)
+  void build(){
+    queue<int>q;
+    q.push(0);
+    while(!q.empty()){      //BFS
+      int u=q.front(); q.pop();
+      order.push_back(u); // store BFS order
+      for(int c=0;c<ALPHA;c++){
+        int v=nxt[u][c];
+        if(!v) nxt[u][c]=nxt[link[u]][c];
+        else{
+          link[v]=(u?nxt[link[u]][c]:0);
+          out_link[v]=out[link[v]].empty()?out_link[link[v]]:link[v];
+          q.push(v);
         }
-        out[u].push_back(id);
+      }
     }
-    void build() {
-        queue<int> q; q.push(0);
-        while (!q.empty()) {
-            int u = q.front(); q.pop();
-            for (int c = 0; c < ALPHA; c++) {
-                int v = nxt[u][c];
-                if (!v) nxt[u][c] = u ? nxt[link[u]][c] : 0;
-                else {
-                    link[v] = u ? nxt[link[u]][c] : 0;
-                    outLink[v] = out[link[v]].empty() ? outLink[link[v]] : link[v];
-                    q.push(v);
+  }
+
+  // move automaton with character
+  // return: next state // complexity: O(1)
+  int advance(int state,char c){
+    return nxt[state][id(c)];
+  }
+
+  // propagate(transfers) counts through suff links
+  // complexity: O(nodes)
+  void propagate(){
+    for(int i=order.size()-1;i>0;i--){
+      int v=order[i];
+      vis[link[v]] += vis[v];
+    }
+  }
+};
+
+int main(){
+// Total Matches (classic multi-pattern search)
+    int n; cin>>n;
+    AC aho;
+    for(int i=0;i<n;i++){string p;cin>>p;aho.add_pattern(p);}
+    aho.build();
+    string s; cin>>s;
+    int st=0,ans=0;
+    for(char c:s){
+        st=aho.advance(st,c);
+        for(int v=st;v;v=aho.out_link[v]) ans+=aho.out[v].size();
+    }
+    cout<<ans;
+
+  // CSES Finding Patterns (YES / NO)
+    string s; cin>>s;
+    int n; cin>>n;
+    AC aho;
+    for(int i=0;i<n;i++){string p;cin>>p;aho.add_pattern(p);}
+    aho.build();
+    int st=0;
+    for(char c:s){st=aho.advance(st,c);aho.vis[st]++;}
+    aho.propagate();
+    for(int i=0;i<n;i++)
+   cout<<(aho.vis[aho.end_node[i]]?"YES\n":"NO\n");
+
+    // CSES Counting Patterns
+    string s; cin>>s;
+    int n; cin>>n;
+    AC aho;
+    for(int i=0;i<n;i++){string p;cin>>p;aho.add_pattern(p);}
+    aho.build();
+    int st=0;
+    for(char c:s){st=aho.advance(st,c);aho.vis[st]++;}
+    aho.propagate();
+    for(int i=0;i<n;i++) cout<<aho.vis[aho.end_node[i]]<<nl;
+
+    // CSES Pattern Positions
+    string s; cin>>s;
+    int n; cin>>n;
+    AC aho;
+    vector<int> len(n);
+    for(int i=0;i<n;i++){string p;cin>>p;len[i]=p.size();aho.add_pattern(p);}
+    aho.build();
+    vector<int> first(aho.nodes,oo);
+    int st=0;
+    for(int i=0;i<s.size();i++){
+        st=aho.advance(st,s[i]);
+        first[st]=min(first[st],i);
+    }
+    for(int i=aho.order.size()-1;i>0;i--){
+        int v=aho.order[i];
+        first[aho.link[v]]=min(first[aho.link[v]],first[v]);
+    }
+    for(int i=0;i<n;i++){
+        int v=aho.end_node[i];
+        cout<<(first[v]==oo?-1:first[v]-len[i]+2)<<nl;
+    }
+}
+\end{lstlisting}
+
+\sectionHeading{Suffix Array Automaton}
+
+\begin{lstlisting}[language=C++]
+// States <= 2 * N
+// N <= 200000 comfortably
+// Build Complexity: O(N log Σ) using map
+
+// len[v]   -> longest string represented by state v
+// link[v]  -> suffix link
+// minlen(v)= len(link[v]) + 1
+// firstpos -> first ending position of longest string
+
+struct SuffixAutomaton {
+    struct node {
+        int len, link, firstpos;
+        map<char,int> nxt;
+    };
+
+    int sz, last;
+    vector<node> t;
+    vector<int> terminal;
+    vector<long long> dp;
+    vector<vector<int>> g;
+    vector<long long> ways;   // DP for substring counting
+
+    SuffixAutomaton(){}
+
+    SuffixAutomaton(int n){
+        t.resize(2*n);
+        terminal.resize(2*n,0);
+        dp.resize(2*n,-1);
+        g.resize(2*n);
+        ways.resize(2*n,-1);
+
+        sz = 1;
+        last = 0;
+
+        t[0].len = 0;
+        t[0].link = -1;
+        t[0].firstpos = 0;
+    }
+
+    // extend automaton with character
+    // amortized O(log Σ)
+    void extend(char c){
+        int p = last;
+
+        // transition already exists
+        if(t[p].nxt.count(c)){
+            int q = t[p].nxt[c];
+
+            if(t[q].len == t[p].len + 1){
+                last = q;
+                return;
+            }
+
+            int clone = sz++;
+            t[clone] = t[q];
+            t[clone].len = t[p].len + 1;
+
+            t[q].link = clone;
+            last = clone;
+
+            while(p!=-1 && t[p].nxt[c]==q){
+                t[p].nxt[c] = clone;
+                p = t[p].link;
+            }
+            return;
+        }
+
+        int cur = sz++;
+        t[cur].len = t[last].len + 1;
+        t[cur].firstpos = t[cur].len;
+
+        p = last;
+
+        while(p!=-1 && !t[p].nxt.count(c)){
+            t[p].nxt[c] = cur;
+            p = t[p].link;
+        }
+
+        if(p==-1) t[cur].link = 0;
+        else{
+            int q = t[p].nxt[c];
+
+            if(t[p].len + 1 == t[q].len)
+                t[cur].link = q;
+
+            else{
+                int clone = sz++;
+                t[clone] = t[q];
+                t[clone].len = t[p].len + 1;
+
+                while(p!=-1 && t[p].nxt[c]==q){
+                    t[p].nxt[c] = clone;
+                    p = t[p].link;
                 }
+
+                t[q].link = t[cur].link = clone;
             }
         }
+
+        last = cur;
     }
-};
-\end{lstlisting}
 
-\sectionHeading{Double rolling hash}
-\begin{lstlisting}[language=C++]
-struct DoubleHash {
-    static const int M1 = 1e9 + 7, M2 = 1e9 + 9;
-    static const int B1 = 911382323, B2 = 972663749;
-    vector<int> h1, h2, p1, p2;
-
-    DoubleHash(const string& s) {
-        int n = s.size();
-        h1.assign(n + 1, 0); h2.assign(n + 1, 0);
-        p1.assign(n + 1, 1); p2.assign(n + 1, 1);
-        for (int i = 0; i < n; i++) {
-            h1[i + 1] = ((long long)h1[i] * B1 + s[i]) % M1;
-            h2[i + 1] = ((long long)h2[i] * B2 + s[i]) % M2;
-            p1[i + 1] = (long long)p1[i] * B1 % M1;
-            p2[i + 1] = (long long)p2[i] * B2 % M2;
+    // build SAM from string
+    // Time: O(N log Σ)
+    void build(string &s){
+        for(char c : s){
+            extend(c);
+            terminal[last] = 1;
         }
+        build_tree();
     }
-    pair<int, int> get(int l, int r) {        // hash of s[l..r], inclusive
-        int x1 = (h1[r + 1] - (long long)h1[l] * p1[r - l + 1] % M1 + M1) % M1;
-        int x2 = (h2[r + 1] - (long long)h2[l] * p2[r - l + 1] % M2 + M2) % M2;
-        return {x1, x2};
+
+    // build suffix link tree
+    void build_tree(){
+        for(int i=1;i<sz;i++)
+            g[t[i].link].push_back(i);
+    }
+
+    // count occurrences of substrings of node i
+    // Time: O(states)
+    long long cnt(int i){
+        if(dp[i]!=-1) return dp[i];
+        long long ret = terminal[i];
+        for(auto &x: g[i]) ret += cnt(x);
+        return dp[i] = ret;
+    }
+
+    // number of distinct substrings
+    // Time: O(states)
+    long long distinct_substrings(){
+        long long ans = 0;
+        for(int i=1;i<sz;i++)
+            ans += t[i].len - t[t[i].link].len;
+        return ans;
+    }
+
+    // longest repeating substring
+    // Time Complexity: O(states)
+    string longest_repeating_string(string &s){
+        int best = 0, best_state = -1;
+        for(int i=1;i<sz;i++){
+            if(cnt(i) >= 2 && t[i].len > best){
+                best = t[i].len;
+                best_state = i;
+            }
+        }
+        if(best == 0) return "-1";
+        int pos = t[best_state].firstpos;
+        return s.substr(pos - best, best);
+    }
+
+    // count substrings starting from node v O(N)
+    // distinct = true  -> Substring Order I
+    // distinct = false -> Substring Order II
+    long long count_paths(int v, bool dist){
+        if(ways[v] != -1) return ways[v];
+        long long ans = dist; // 1 for dist
+        for(auto [c,u] : t[v].nxt){
+            if(dist) ans += count_paths(u, dist);
+            else ans += cnt(u) + count_paths(u, dist);
+        }
+        return ways[v] = ans;
+    }
+
+    // k-th lexicographical substring O(N)
+    // distinct = true  -> Substring Order I
+    // distinct = false -> Substring Order II
+    string kth_substring(long long k, bool dist=true){
+        fill(ways.begin(), ways.end(), -1);
+        count_paths(0, dist);
+        string ans="";
+        int v=0;
+        while(k>0){
+            for(auto [c,u] : t[v].nxt){
+                long long ways_here;
+                if(dist) ways_here = count_paths(u, dist);
+                else ways_here = cnt(u) + count_paths(u, dist);
+                if(k <= ways_here){
+                    ans += c;
+                    if(!dist){
+                        if(k <= cnt(u)) return ans;
+                        k -= cnt(u);
+                    }
+                    else{
+                        if(k == 1) return ans;
+                        k--;
+                    }
+                    v = u;
+                    break;
+                }
+                k -= ways_here;
+            }
+        }
+
+        return ans;
+    }
+
+    // substring distribution
+    // number of dist substrings of each length
+    // Time: O(N)
+    vector<int> substring_distribution(int n){
+        vector<int> ans(n+2,0);
+        for(int i=1;i<sz;i++){
+            int l = t[t[i].link].len + 1;
+            int r = t[i].len;
+            ans[l]++;
+            ans[r+1]--;
+        }
+        for(int i=1;i<=n;i++)
+            ans[i] += ans[i-1];
+        ans.resize(n+1);
+        return ans;
     }
 };
 \end{lstlisting}
+\endgroup
