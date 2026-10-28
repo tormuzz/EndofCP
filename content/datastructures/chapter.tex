@@ -2,72 +2,198 @@
 
 \sectionHeading{Segment tree (point update, range query)}
 \begin{lstlisting}[language=C++]
-struct SegTree {
-    int n;
-    vector<long long> t;
-    SegTree(int n) : n(n), t(2 * n, 0) {}
-
-    void build(const vector<int>& a) {          // a[0..n)
-        for (int i = 0; i < n; i++) t[n + i] = a[i];
-        for (int i = n - 1; i > 0; i--) t[i] = t[i << 1] + t[i << 1 | 1];
+#include <iostream>
+#include <vector>
+ 
+// build            (1, 1, n    );
+// update           (1, 1, n,   l, r,   {a, b});
+// Info ans = query (1, 1, n,   l, r);
+// make sure to convert into 0 based indexing
+ 
+struct Info {
+    int sum=0;
+};
+ 
+const int MAXN = 2e5+5;
+ 
+vector<Info> segtree(4 * MAXN);
+vector<int> v(MAXN);
+pair<int, int> lazy[4 * MAXN];  // pending operations at the node (**for children**)
+ 
+Info Identity(){
+    Info a;
+    return a;
+}
+ 
+pair<int, int> updateIdentity() {
+    return {1, 0};
+}
+ 
+Info merge(Info &a, Info &b){
+    Info res;
+    res.sum = a.sum + b.sum;
+    return res;
+}
+void applyUpdate(int id, int l, int r, pair<int, int>lazy_val) {
+    // lazy_val.first = a, lazy_val.second = b
+    // Every element x becomes a*x + b
+    // Sum becomes a*sum + b*(r-l+1)
+ 
+    segtree[id].sum = lazy_val.first*segtree[id].sum + lazy_val.second*(r-l+1);
+ 
+    auto temp = lazy[id];
+ 
+    /// lazy[id] = (a, b) -> ax + b
+    /// v = (p, q)       -> px + q
+    /// New operation: p(ax + b) + q
+    ///                 = (pa)x + (pb + q)
+ 
+    lazy[id].first = lazy_val.first * temp.first;
+    lazy[id].second = lazy_val.first * temp.second + lazy_val.second;
+}
+ 
+void lazypush(int id, int l, int r) {
+    // no change in tree[id]
+    if (lazy[id] == updateIdentity()) return;
+ 
+    if (l == r) {
+        lazy[id] = updateIdentity();
+        return;
     }
-    void update(int p, long long v) {           // a[p] = v
-        for (t[p += n] = v; p > 1; p >>= 1)
-            t[p >> 1] = t[p] + t[p ^ 1];
+ 
+    int lc = 2 * id;
+    int rc = 2 * id + 1;
+    int m = (l + r) / 2;
+ 
+    applyUpdate(lc, l, m, lazy[id]);
+    applyUpdate(rc, m+1, r, lazy[id]);
+ 
+    lazy[id] = updateIdentity();
+}
+ 
+// O(n) // lazy build
+void build(int id, int l, int r) {
+    lazy[id] = updateIdentity();
+ 
+    if (l == r) {
+        segtree[id].sum = v[l];
+        return;
     }
-    long long query(int l, int r) {             // sum on [l, r)
-        long long res = 0;
-        for (l += n, r += n; l < r; l >>= 1, r >>= 1) {
-            if (l & 1) res += t[l++];
-            if (r & 1) res += t[--r];
+ 
+    int lc = 2 * id;
+    int rc = 2 * id + 1;
+    int m = (l + r) / 2;
+ 
+    build(lc, l, m);
+    build(rc, m+1, r);
+ 
+    segtree[id] = merge(segtree[lc], segtree[rc]);
+}
+ 
+// O(log n)
+Info query(int id, int l, int r, int L, int R) {
+    lazypush(id, l, r);
+ 
+    if (L <= l && r <= R) {
+        // perfect -> [l, r] is inside [L, R]
+        return segtree[id];
+    }
+ 
+    if (r < L || R < l) {
+        // outside -> [l, r] does not overlap with [L, R]
+        return Identity();
+    }
+ 
+    // extra -> remaining
+    int lc = 2 * id;
+    int rc = 2 * id + 1;
+    int m = (l + r) / 2;
+ 
+    auto ans1 = query(lc, l, m, L, R);
+    auto ans2 = query(rc, m+1, r, L, R);
+ 
+    return merge(ans1, ans2);
+}
+ 
+ 
+ 
+// O(log n)
+void update(int id, int l, int r, int L, int R, pair<int, int> v) {
+    lazypush(id, l, r);
+ 
+    if (L <= l && r <= R) {
+        // perfect -> [l, r] is inside [L, R]
+        applyUpdate(id, l, r, v);
+        return;
+    }
+ 
+    if (r < L || R < l) {
+        // outside -> [l, r] does not overlap with [L, R]
+        return;
+    }
+ 
+    int lc = 2 * id;
+    int rc = 2 * id + 1;
+    int m = (l + r) / 2;
+ 
+    update(lc, l, m, L, R, v);
+    update(rc, m+1, r, L, R, v);
+ 
+    segtree[id] = merge(segtree[lc], segtree[rc]);
+}
+ 
+void debug(int id, int l, int r){
+    int mid = (l+r)/2;
+    int lc = 2*id;
+    int rc = 2*id + 1;
+ 
+    cout << id << " -- [" << l << ", " << r << "] --> " << segtree[id].sum << nl;
+ 
+    if(l == r) return;
+ 
+    debug(lc, l, mid);
+    debug(rc, mid+1, r);
+}
+ 
+void solve(){
+    int n, q; cin>>n>>q;
+ 
+    for(int i=1; i<=n; i++) cin>>v[i];
+ 
+    build(1, 1, n);
+ 
+    while(q--){
+        int k; cin>>k;
+ 
+        if(k==1){
+            // Increase each value in [a, b] by x
+            int a, b, x; cin>>a>>b>>x;
+            update(1, 1, n, a, b, {1, x});
         }
-        return res;
+        else if(k==2){
+            // Set each value in [a, b] to x
+            int a, b, x; cin>>a>>b>>x;
+            update(1, 1, n, a, b, {0, x});
+        }
+        else{
+            // Calculate the sum of values in [a, b]
+            int a, b; cin>>a>>b;
+            cout << query(1, 1, n, a, b).sum << nl;
+        }
     }
-};
-\end{lstlisting}
+}
 
-\sectionHeading{Segment tree (lazy propagation: range add, range sum)}
-\begin{lstlisting}[language=C++]
-struct LazySegTree {
-    int n;
-    vector<long long> t, lazy;
-    LazySegTree(int n) : n(n), t(4 * n, 0), lazy(4 * n, 0) {}
+int32_t main(){
+    fast
 
-    void build(int v, int l, int r, const vector<int>& a) {
-        if (l == r) { t[v] = a[l]; return; }
-        int m = (l + r) >> 1;
-        build(2 * v, l, m, a);
-        build(2 * v + 1, m + 1, r, a);
-        t[v] = t[2 * v] + t[2 * v + 1];
+    int t = 1, w = 1;
+    // cin >> t;
+
+    while(t--){
+        // cout << "Case " << w++ << ": ";
+        solve();
     }
-    void apply(int v, int l, int r, long long x) {
-        t[v] += x * (r - l + 1);
-        lazy[v] += x;
-    }
-    void push(int v, int l, int r) {
-        if (!lazy[v]) return;
-        int m = (l + r) >> 1;
-        apply(2 * v, l, m, lazy[v]);
-        apply(2 * v + 1, m + 1, r, lazy[v]);
-        lazy[v] = 0;
-    }
-    void update(int v, int l, int r, int ql, int qr, long long x) {
-        if (qr < l || r < ql) return;
-        if (ql <= l && r <= qr) { apply(v, l, r, x); return; }
-        push(v, l, r);
-        int m = (l + r) >> 1;
-        update(2 * v, l, m, ql, qr, x);
-        update(2 * v + 1, m + 1, r, ql, qr, x);
-        t[v] = t[2 * v] + t[2 * v + 1];
-    }
-    long long query(int v, int l, int r, int ql, int qr) {
-        if (qr < l || r < ql) return 0;
-        if (ql <= l && r <= qr) return t[v];
-        push(v, l, r);
-        int m = (l + r) >> 1;
-        return query(2 * v, l, m, ql, qr) + query(2 * v + 1, m + 1, r, ql, qr);
-    }
-};
+}
 \end{lstlisting}
 
 \sectionHeading{MO's algorithm}
