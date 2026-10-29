@@ -34,7 +34,7 @@ const int BASE1 = 911382323;
 const int BASE2 = 972663749;
 vector<int> power1(MAXN), power2(MAXN);
 
-// Precompute powers once
+// Precompute powers once           // O(n)
 void precomputePowers() {
     power1[0] = power2[0] = 1;
     for (int i = 1; i < MAXN; i++) {
@@ -48,7 +48,7 @@ struct RabinKarpHash {
     vector<int> hash1, hash2, Rash1, Rash2;
     int n;
 
-    RabinKarpHash(const string &s) {
+    RabinKarpHash(const string &s) {        // O(2*n)
         n = (int)s.size();
         hash1.assign(n + 1, 0); hash2.assign(n + 1, 0);
         Rash1.assign(n + 1, 0); Rash2.assign(n + 1, 0);
@@ -66,37 +66,38 @@ struct RabinKarpHash {
         }
     }
 
-    inline pair<int,int> getSubHash(int l, int r) const {
+    inline uint64_t getSubHash(int l, int r) const {
         int x1 = (hash1[r + 1] - 1LL * hash1[l] * power1[r - l + 1]) % MOD1;
         int x2 = (hash2[r + 1] - 1LL * hash2[l] * power2[r - l + 1]) % MOD2;
         if (x1 < 0) x1 += MOD1; if (x2 < 0) x2 += MOD2;
-        return {x1, x2};
+        return (((uint64_t)x1 << 32) | x2);
     }
 
-    inline pair<int,int> getRevHash(int l, int r) const {
+    inline uint64_t getRevHash(int l, int r) const {
         int L = n - 1 - r; int R = n - 1 - l;
         int x1 = (Rash1[R + 1] - 1LL * Rash1[L] * power1[R - L + 1]) % MOD1;
         int x2 = (Rash2[R + 1] - 1LL * Rash2[L] * power2[R - L + 1]) % MOD2;
         if (x1 < 0) x1 += MOD1; if (x2 < 0) x2 += MOD2;
-        return {x1, x2};
+        return (((uint64_t)x1 << 32) | x2);
     }
 
-    inline pair<int,int> contribution(int i,int R,char c) const {
+    // O(1)
+    inline uint64_t contribution(int i,int R,char c) const {
         int val = c - 'a' + 1;
         int powerPos = R - i;
         int x1 = (1LL * val * power1[powerPos]) % MOD1;
         int x2 = (1LL * val * power2[powerPos]) % MOD2;
-        return {(int)x1, (int)x2};
+        return (((uint64_t)x1 << 32) | x2);
     }
 
     //does not affect the main string // O(1)
-    inline pair<int,int> CNGHash(int i, char oldc, char newc) const {
+    inline uint64_t CNGHash(int i, char oldc, char newc) const {
         auto ex = contribution(i,n-1,oldc);
         auto cur = contribution(i,n-1,newc);
         pair<int,int> p = {hash1[n], hash2[n]};
         p.first = (p.first - ex.first + cur.first + MOD1) % MOD1;
         p.second = (p.second - ex.second + cur.second + MOD2) % MOD2;
-        return p;
+        return (((uint64_t)p.first << 32) | p.second);
     }
 };
 \end{lstlisting}
@@ -106,12 +107,11 @@ struct RabinKarpHash {
 \begin{lstlisting}[language=C++]
 vector<int> occurrences;
 
-void searchPattern(const string &text, const string &pattern) {
+void searchPattern(const string &text, const string &pattern, RabinKarpHash &txtHash) {
     occurrences.clear();
     int n = sz(text), m = sz(pattern);
     if (m > n) return;
 
-    RabinKarpHash txtHash(text);    // in main function
     RabinKarpHash patHash(pattern);
     pair<int,int> patH = patHash.getSubHash(0, m - 1);
 
@@ -181,13 +181,8 @@ const int BASE2 = 972663749;
 const int MAXN = 200005;
 vector<int> power1(MAXN), power2(MAXN);
 
-void precomputePowers() {                 // O(n)
-    power1[0] = power2[0] = 1;
-    for (int i = 1; i < MAXN; i++) {
-        power1[i] = (1LL * power1[i - 1] * BASE1) % MOD1;
-        power2[i] = (1LL * power2[i - 1] * BASE2) % MOD2;
-    }
-}
+// same as Hash // O(n)
+void precomputePowers(){} 
 
 struct SegTreeHash {
     struct Node {
