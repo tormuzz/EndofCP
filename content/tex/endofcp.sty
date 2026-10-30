@@ -85,23 +85,18 @@
   \end{center}
 }
 
-% Full-page cover: logo + university + team + contest.
-% Needs \university's third argument to be an existing image file.
+% Full-page cover: university, team, and members. A logo and date are omitted.
 \newcommand{\maketeampage}{%
   \pagestyle{empty}
   \setcounter{page}{0}
   \begin{center}
     \strut % magic
-    \vspace{3cm}\\
-    \includegraphics[width=3cm]{\@unilogo}\\
-    {\fontsize{25}{30}\selectfont \@unilong\\}
-    {\fontsize{60}{60}\selectfont \@teamname\\}
+    \vspace{5cm}\\
+    {\lorafont\fontsize{25}{30}\selectfont \@unilong\\}
+    {\lorafont\fontsize{60}{60}\selectfont \@teamname\\}
     \vspace{0.5cm}
-    {\huge \@teammembers\\}
+    {\lorafont\huge \@teammembers\\}
     \vfill
-    {\fontsize{21}{25}\selectfont \@contestname}\\
-    \vspace{0.5cm}
-    {\huge \@contestdate}\\
     \vspace{1cm}
   \end{center}
   \clearpage
