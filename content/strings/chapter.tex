@@ -6,9 +6,7 @@
         searchPattern,hashAfterRemove,SegTreeHash,merge,build,update,query,getHash,
         isPalindrome,LCP,Trie,charToIndex,insert,exists,countPrefix,remove,dfsCollect,
         autocomplete,longestCommonPrefix,dfs,build_lps,kmp,z_function,manacher,booth,
-        minimal_rotation,AC,new_node,id,add_pattern,advance,propagate,SuffixAutomaton,
-        extend,build_tree,cnt,distinct_substrings,longest_repeating_string,count_paths,
-        kth_substring,substring_distribution,main
+        minimal_rotation,AC,new_node,id,add_pattern,advance,propagate,SAMNode,build_sam,get_distinct_substrings,get_pattern_frequency,get_kth_distinct_substring,get_shortest_non_appearing,get_substring_matches,get_prefix_matches,get_suffix_matches,get_min_blocks
     },
     emphstyle=\bfseries
 }
@@ -913,222 +911,254 @@ int main(){
 }
 \end{lstlisting}
 
-\sectionHeading{Suffix Array Automaton}
+\sectionHeading{Suffix Automaton}
+
+\subHeading{Core Build}
 
 \begin{lstlisting}[language=C++]
-// States <= 2 * N
-// N <= 200000 comfortably
-// Build Complexity: O(N log Σ) using map
+struct SAMNode {
+    int len, link, next[26], cnt;
+    SAMNode(): len(0), link(-1), cnt(0) { fill(next, next + 26, 0); }
+};
 
-// len[v]   -> longest string represented by state v
-// link[v]  -> suffix link
-// minlen(v)= len(link[v]) + 1
-// firstpos -> first ending position of longest string
-
-struct SuffixAutomaton {
-    struct node {
-        int len, link, firstpos;
-        map<char,int> nxt;
-    };
-
-    int sz, last;
-    vector<node> t;
-    vector<int> terminal;
-    vector<long long> dp;
-    vector<vector<int>> g;
-    vector<long long> ways;   // DP for substring counting
-
-    SuffixAutomaton(){}
-
-    SuffixAutomaton(int n){
-        t.resize(2*n);
-        terminal.resize(2*n,0);
-        dp.resize(2*n,-1);
-        g.resize(2*n);
-        ways.resize(2*n,-1);
-
-        sz = 1;
-        last = 0;
-
-        t[0].len = 0;
-        t[0].link = -1;
-        t[0].firstpos = 0;
-    }
-
-    // extend automaton with character
-    // amortized O(log Σ)
-    void extend(char c){
-        int p = last;
-
-        // transition already exists
-        if(t[p].nxt.count(c)){
-            int q = t[p].nxt[c];
-
-            if(t[q].len == t[p].len + 1){
-                last = q;
-                return;
-            }
-
-            int clone = sz++;
-            t[clone] = t[q];
-            t[clone].len = t[p].len + 1;
-
-            t[q].link = clone;
-            last = clone;
-
-            while(p!=-1 && t[p].nxt[c]==q){
-                t[p].nxt[c] = clone;
-                p = t[p].link;
-            }
-            return;
-        }
-
-        int cur = sz++;
-        t[cur].len = t[last].len + 1;
-        t[cur].firstpos = t[cur].len;
-
-        p = last;
-
-        while(p!=-1 && !t[p].nxt.count(c)){
-            t[p].nxt[c] = cur;
-            p = t[p].link;
-        }
-
-        if(p==-1) t[cur].link = 0;
-        else{
-            int q = t[p].nxt[c];
-
-            if(t[p].len + 1 == t[q].len)
-                t[cur].link = q;
-
-            else{
+vector<SAMNode> build_sam(const string& s) {    //O(n)
+    int n = s.size(), sz = 1, last = 0;
+    vector<SAMNode> st(n * 2);
+    for (char c : s) {
+        int cur = sz++, p = last, x = c - 'a';
+        st[cur].len = st[last].len + 1;
+        st[cur].cnt = 1; // Mark as original occurrence
+        for (; p != -1 && !st[p].next[x]; p = st[p].link) st[p].next[x] = cur;
+        if (p == -1) {
+            st[cur].link = 0;
+        } else {
+            int q = st[p].next[x];
+            if (st[p].len + 1 == st[q].len) {
+                st[cur].link = q;
+            } else {
                 int clone = sz++;
-                t[clone] = t[q];
-                t[clone].len = t[p].len + 1;
-
-                while(p!=-1 && t[p].nxt[c]==q){
-                    t[p].nxt[c] = clone;
-                    p = t[p].link;
-                }
-
-                t[q].link = t[cur].link = clone;
+                st[clone] = st[q];
+                st[clone].len = st[p].len + 1;
+                st[clone].cnt = 0; // Mark as cloned state
+                for (; p != -1 && st[p].next[x] == q; p = st[p].link) st[p].next[x] = clone;
+                st[q].link = st[cur].link = clone;
             }
         }
-
         last = cur;
     }
-
-    // build SAM from string
-    // Time: O(N log Σ)
-    void build(string &s){
-        for(char c : s){
-            extend(c);
-            terminal[last] = 1;
-        }
-        build_tree();
-    }
-
-    // build suffix link tree
-    void build_tree(){
-        for(int i=1;i<sz;i++)
-            g[t[i].link].push_back(i);
-    }
-
-    // count occurrences of substrings of node i
-    // Time: O(states)
-    long long cnt(int i){
-        if(dp[i]!=-1) return dp[i];
-        long long ret = terminal[i];
-        for(auto &x: g[i]) ret += cnt(x);
-        return dp[i] = ret;
-    }
-
-    // number of distinct substrings
-    // Time: O(states)
-    long long distinct_substrings(){
-        long long ans = 0;
-        for(int i=1;i<sz;i++)
-            ans += t[i].len - t[t[i].link].len;
-        return ans;
-    }
-
-    // longest repeating substring
-    // Time Complexity: O(states)
-    string longest_repeating_string(string &s){
-        int best = 0, best_state = -1;
-        for(int i=1;i<sz;i++){
-            if(cnt(i) >= 2 && t[i].len > best){
-                best = t[i].len;
-                best_state = i;
-            }
-        }
-        if(best == 0) return "-1";
-        int pos = t[best_state].firstpos;
-        return s.substr(pos - best, best);
-    }
-
-    // count substrings starting from node v O(N)
-    // distinct = true  -> Substring Order I
-    // distinct = false -> Substring Order II
-    long long count_paths(int v, bool dist){
-        if(ways[v] != -1) return ways[v];
-        long long ans = dist; // 1 for dist
-        for(auto [c,u] : t[v].nxt){
-            if(dist) ans += count_paths(u, dist);
-            else ans += cnt(u) + count_paths(u, dist);
-        }
-        return ways[v] = ans;
-    }
-
-    // k-th lexicographical substring O(N)
-    // distinct = true  -> Substring Order I
-    // distinct = false -> Substring Order II
-    string kth_substring(long long k, bool dist=true){
-        fill(ways.begin(), ways.end(), -1);
-        count_paths(0, dist);
-        string ans="";
-        int v=0;
-        while(k>0){
-            for(auto [c,u] : t[v].nxt){
-                long long ways_here;
-                if(dist) ways_here = count_paths(u, dist);
-                else ways_here = cnt(u) + count_paths(u, dist);
-                if(k <= ways_here){
-                    ans += c;
-                    if(!dist){
-                        if(k <= cnt(u)) return ans;
-                        k -= cnt(u);
-                    }
-                    else{
-                        if(k == 1) return ans;
-                        k--;
-                    }
-                    v = u;
-                    break;
-                }
-                k -= ways_here;
-            }
-        }
-
-        return ans;
-    }
-
-    // substring distribution
-    // number of dist substrings of each length
-    // Time: O(N)
-    vector<int> substring_distribution(int n){
-        vector<int> ans(n+2,0);
-        for(int i=1;i<sz;i++){
-            int l = t[t[i].link].len + 1;
-            int r = t[i].len;
-            ans[l]++;
-            ans[r+1]--;
-        }
-        for(int i=1;i<=n;i++)
-            ans[i] += ans[i-1];
-        ans.resize(n+1);
-        return ans;
-    }
-};
+    st.resize(sz);
+    return st;
+}
 \end{lstlisting}
+
+\subHeading{Distinct Substrings}
+
+\begin{lstlisting}[language=C++]
+long long get_distinct_substrings(const string& s) {
+    vector<SAMNode> st = build_sam(s);
+    long long total = 0;
+    for (int i = 1; i < (int)st.size(); ++i)
+        total += st[i].len - st[st[i].link].len;
+    return total;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N)$ Time $\mid$ $\mathcal{O}(N)$ Space \quad \textbf{Returns:} Total count of all unique substrings in \texttt{s}.
+
+\subHeading{Pattern Frequency}
+
+\begin{lstlisting}[language=C++]
+int get_pattern_frequency(const string& text, const string& pattern) {
+    vector<SAMNode> st = build_sam(text);
+    int sz = st.size();
+    vector<int> order(sz);
+    iota(order.begin(), order.end(), 0);
+    sort(order.begin(), order.end(), [&](int a, int b) { return st[a].len > st[b].len; });
+    for (int i : order)
+        if (st[i].link != -1) st[st[i].link].cnt += st[i].cnt;
+    int v = 0;
+    for (char c : pattern) {
+        if (!st[v].next[c - 'a']) return 0;
+        v = st[v].next[c - 'a'];
+    }
+    return st[v].cnt;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N \log N + |P|)$ Time $\mid$ $\mathcal{O}(N)$ Space \quad \textbf{Returns:} Exact number of times \texttt{pattern} appears as a substring in \texttt{text}.
+
+\subHeading{K-th Distinct Substring}
+
+\begin{lstlisting}[language=C++]
+string get_kth_distinct_substring(const string& s, long long k) {
+    vector<SAMNode> st = build_sam(s);
+    int sz = st.size();
+    vector<long long> paths(sz, 1);
+    vector<int> order(sz);
+    iota(order.begin(), order.end(), 0);
+    sort(order.begin(), order.end(), [&](int a, int b) { return st[a].len > st[b].len; });
+    for (int u : order)
+        for (int c = 0; c < 26; ++c)
+            if (st[u].next[c]) paths[u] += paths[st[u].next[c]];
+    if (k >= paths[0]) return "OUT_OF_BOUNDS";
+    string res = "";
+    int v = 0;
+    while (k > 0) {
+        for (int c = 0; c < 26; ++c) {
+            if (st[v].next[c]) {
+                int nxt = st[v].next[c];
+                if (k <= paths[nxt]) {
+                    res += (char)(c + 'a');
+                    k--;
+                    v = nxt;
+                    break;
+                } else {
+                    k -= paths[nxt];
+                }
+            }
+        }
+    }
+    return res;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N \log N + |\text{Ans}|)$ Time $\mid$ $\mathcal{O}(N)$ Space \quad \textbf{Returns:} The $K$-th distinct substring in lexicographic order. Returns \texttt{"OUT\_OF\_BOUNDS"} if $K$ exceeds total distinct substrings.
+
+\subHeading{Shortest Non-Appearing String}
+
+\begin{lstlisting}[language=C++]
+string get_shortest_non_appearing(const string& s) {
+    vector<SAMNode> st = build_sam(s);
+    queue<int> q;
+    vector<int> parent(st.size(), -1);
+    vector<char> char_used(st.size());
+    q.push(0);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (int c = 0; c < 26; ++c) {
+            if (st[u].next[c]) {
+                int nxt = st[u].next[c];
+                if (parent[nxt] == -1) {
+                    parent[nxt] = u;
+                    char_used[nxt] = c + 'a';
+                    q.push(nxt);
+                }
+            } else {
+                string res = "";
+                res += (char)(c + 'a');
+                while (u != 0) { res += char_used[u]; u = parent[u]; }
+                reverse(res.begin(), res.end());
+                return res;
+            }
+        }
+    }
+    return "";
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N \cdot \Sigma)$ Time $\mid$ $\mathcal{O}(N)$ Space \quad \textbf{Returns:} Shortest string over \texttt{'a'}-\texttt{'z'} that does not appear in \texttt{s}.
+
+\subHeading{Substring Matches (any substring of p)}
+
+\begin{lstlisting}[language=C++]
+vector<int> get_substring_matches(string s, string p) {
+    int n = s.size(), v = 0, l = 0;
+    reverse(p.begin(), p.end());
+    reverse(s.begin(), s.end());
+    vector<SAMNode> st = build_sam(p);
+    vector<int> ans(n);
+    for (int i = 0; i < n; ++i) {
+        int c_idx = s[i] - 'a';
+        while (v > 0 && !st[v].next[c_idx]) { v = st[v].link; l = st[v].len; }
+        if (st[v].next[c_idx]) { v = st[v].next[c_idx]; l++; }
+        ans[n - 1 - i] = l;
+    }
+    return ans;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N + M)$ Time $\mid$ $\mathcal{O}(N + M)$ Space \quad \textbf{Returns:} \texttt{ans[i]} = max length of match starting at \texttt{s[i]} that is any substring of \texttt{p}.
+
+\subHeading{Prefix Matches (prefix of p)}
+
+\begin{lstlisting}[language=C++]
+vector<int> get_prefix_matches(const string& s, const string& p) {
+    int n = s.size(), m = p.size();
+    string concat = p + "#" + s;
+    vector<int> z(n + m + 1, 0), ans(n);
+    for (int i = 1, l = 0, r = 0; i < (int)concat.size(); ++i) {
+        if (i <= r) z[i] = min(r - i + 1, z[i - l]);
+        while (i + z[i] < (int)concat.size() && concat[z[i]] == concat[i + z[i]]) ++z[i];
+        if (i + z[i] - 1 > r) l = i, r = i + z[i] - 1;
+    }
+    for (int i = 0; i < n; ++i) ans[i] = z[m + 1 + i];
+    return ans;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N + M)$ Time $\mid$ $\mathcal{O}(N + M)$ Space \quad \textbf{Returns:} \texttt{ans[i]} = max length of match starting at \texttt{s[i]} that is a prefix of \texttt{p}.
+
+\subHeading{Suffix Matches (suffix of p)}
+
+\begin{lstlisting}[language=C++]
+vector<int> get_suffix_matches(string s, string p) {
+    int n = s.size(), m = p.size();
+    reverse(p.begin(), p.end());
+    reverse(s.begin(), s.end());
+    string concat = p + "#" + s;
+    vector<int> pi(n + m + 1, 0), ans(n);
+    for (int i = 1; i < (int)concat.size(); i++) {
+        int j = pi[i - 1];
+        while (j > 0 && concat[i] != concat[j]) j = pi[j - 1];
+        if (concat[i] == concat[j]) j++;
+        pi[i] = j;
+    }
+    for (int i = 0; i < n; ++i) ans[n - 1 - i] = pi[m + 1 + i];
+    return ans;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N + M)$ Time $\mid$ $\mathcal{O}(N + M)$ Space \quad \textbf{Returns:} \texttt{ans[i]} = max length of match starting at \texttt{s[i]} that is a suffix of \texttt{p}.
+
+\subHeading{Minimum Blocks}
+
+\begin{lstlisting}[language=C++]
+int get_min_blocks(const string& s, const string& p) {
+    int n = s.size(), m = p.size();
+    vector<int> sub_len = get_substring_matches(s, p);
+    vector<int> suff = get_suffix_matches(s, p);
+    vector<int> pref = get_prefix_matches(s, p);
+    vector<vector<int>> dist(n + 1, vector<int>(2, 1e9));
+    set<int> unvis[2];
+    for (int i = 1; i <= n; ++i) { unvis[0].insert(i); unvis[1].insert(i); }
+    queue<pair<int, int>> q;
+    dist[0][0] = 0; q.push({0, 0});
+    while (!q.empty()) {
+        auto [u, st] = q.front(); q.pop();
+        if (u == n) continue;
+        auto update_range = [&](int max_len, int nxt_st) {
+            auto it = unvis[nxt_st].lower_bound(u + 1);
+            while (it != unvis[nxt_st].end() && *it <= u + max_len) {
+                dist[*it][nxt_st] = dist[u][st] + 1;
+                q.push({*it, nxt_st});
+                it = unvis[nxt_st].erase(it);
+            }
+        };
+        auto update_exact = [&](int len, int nxt_st) {
+            if (len >= m && unvis[nxt_st].count(u + m)) {
+                dist[u + m][nxt_st] = dist[u][st] + 1;
+                q.push({u + m, nxt_st});
+                unvis[nxt_st].erase(u + m);
+            }
+        };
+        update_exact(pref[u], 0); update_range(pref[u], 1);
+        if (st == 0) { update_range(suff[u], 0); update_range(sub_len[u], 1); }
+    }
+    int ans = min(dist[n][0], dist[n][1]);
+    return (ans == (int)1e9) ? -1 : ans;
+}
+\end{lstlisting}
+
+\noindent \textbf{Complexity:} $\mathcal{O}(N \log N + M)$ Time $\mid$ $\mathcal{O}(N + M)$ Space \quad \textbf{Returns:} Minimum blocks to construct \texttt{s} from substrings/prefix/suffix of \texttt{p}, or $-1$ if impossible.
+
 \endgroup
