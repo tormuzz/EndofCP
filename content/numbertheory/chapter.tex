@@ -1,5 +1,38 @@
 \chapterHeading{Number theory}
 
+
+\sectionHeading{Is Prime?}
+\noindent
+\textbf{Constraints:} $2 \leq n \leq 2^{64}-1$ \textbf{Time:} $O(\log n)$ \textbf{Space:} $O(1)$
+\textbf{Assumes:} Deterministic Miller--Rabin using the seven bases
+$\{2,325,9375,28178,450775,9780504,1795265022\}$.
+\begin{lstlisting}[language=C++]
+bool check_composite(u64 n, u64 a, u64 d, int s) {
+    a%=n;
+// n divides the base, so this base can say nothing about n
+    if(a==0) return 0; 
+    u64 x=bigMod(a, d, n);
+
+    if(x==1 || x==n-1) return 0;
+    for(int r=1; r<s; r++) {
+        x = (u128) x*x % n;
+        if(x==n-1) return 0;
+    }
+    return 1;
+};
+bool MillerRabin(u64 n) { // returns 1 if n is prime
+    if(n<2) return 0;
+    u64 s=0, d=n-1;
+    while((d&1)==0){
+        d>>=1;
+        s++;
+    }
+    for(u64 a : {2, 325, 9375, 28178, 450775, 9780504, 1795265022})
+        if(check_composite(n, a, d, s)) return 0;
+    return 1;
+}
+\end{lstlisting}
+
 \sectionHeading{Segmented sieve ( primes in [L, R] )}
 \noindent
 \textbf{Constraints:} $R \le 10^{14}$ and $(R-L+1)$ \le \; $\sim[10^6 - 10^7$]\\
@@ -115,18 +148,18 @@ void precomputePhiLinear(){ // N<=1e7
 \sectionHeading{Binary exponentiation}
 \begin{lstlisting}[language=C++, mathescape=true]
 // base, pow, mod $\le 10^{18}$ // 128-bit multiplication
-int mulMod(int a, int b, int mod){
-    return (__int128) a*b % mod;
-}
-int bigMod(int base, int pow, int mod){
-    int res=1% mod;
-    base=(base%mod +mod) %mod;
-    while(pow){
-        if(pow&1) res = mulMod(res, base, mod);
-        base = mulMod(base, base, mod);
-        pow>>=1;
+using u64 = uint64_t;
+using u128 = __uint128_t;
+u64 bigMod(u64 b, u64 p, u64 mod){
+    u64 r=1;
+    b%=mod;
+    if(!(mid&1)) p%=mod;
+    while(p){
+        if(p&1) r = (u128) r*b % mod;
+        b = (u128) b*b % mod;
+        p>>=1;
     }
-    return res;
+    return r;
 }
 \end{lstlisting}
 
