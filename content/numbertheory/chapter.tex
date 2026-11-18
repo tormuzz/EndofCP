@@ -153,7 +153,6 @@ using u128 = __uint128_t;
 u64 bigMod(u64 b, u64 p, u64 mod){
     u64 r=1;
     b%=mod;
-    if(!(mod&1)) p%=mod;
     while(p){
         if(p&1) r = (u128) r*b % mod;
         b = (u128) b*b % mod;
